@@ -1,4 +1,4 @@
-name: fedora_29
+name: fedora_29_20
 
 on:
   push:
