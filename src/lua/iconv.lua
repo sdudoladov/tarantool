@@ -1,6 +1,7 @@
 local ffi    = require('ffi')
 local errno  = require('errno')
 local buffer = require('buffer')
+local cord_buf_take = buffer.internal.cord_buf_take
 
 ffi.cdef[[
 typedef struct iconv *iconv_t;
@@ -33,7 +34,7 @@ local function iconv_convert(iconv, data)
 
     -- prepare at lease BUF_SIZE and at most data_len bytes in shared buffer
     local output_len = data_len >= BUF_SIZE and data_len or BUF_SIZE
-    local buf      = buffer.IBUF_SHARED;
+    local buf      = cord_buf_take();
     local buf_ptr  = char_ptr_arr_t()
     local buf_left = size_t_arr_t()
     buf:reset()

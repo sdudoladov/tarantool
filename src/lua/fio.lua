@@ -6,6 +6,7 @@ local buffer = require('buffer')
 local fiber = require('fiber')
 local errno = require('errno')
 local schedule_task = fiber._internal.schedule_task
+local cord_buf_take = buffer.internal.cord_buf_take
 
 ffi.cdef[[
     int umask(int mask);
@@ -101,7 +102,7 @@ fio_methods.pread = function(self, buf, size, offset)
     if not ffi.istype(const_char_ptr_t, buf) then
         offset = size
         size = buf
-        tmpbuf = buffer.IBUF_SHARED
+        tmpbuf = cord_buf_take()
         tmpbuf:reset()
         buf = tmpbuf:reserve(size)
     end

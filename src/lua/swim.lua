@@ -6,6 +6,7 @@ local crypto = require('crypto')
 local fiber = require('fiber')
 local internal = require('swim')
 local schedule_task = fiber._internal.schedule_task
+local cord_buf_take = buffer.internal.cord_buf_take
 
 ffi.cdef[[
     struct swim;
@@ -657,7 +658,7 @@ local function swim_set_payload(s, payload)
     local ptr = swim_check_instance(s, func_name)
     local payload_size = 0
     if payload ~= nil then
-        local buf = buffer.IBUF_SHARED
+        local buf = cord_buf_take()
         buf:reset()
         payload_size = msgpack.encode(payload, buf)
         payload = buf.rpos

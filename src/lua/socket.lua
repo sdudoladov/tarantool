@@ -13,6 +13,7 @@ local buffer = require('buffer')
 local reg1 = buffer.reg1
 local reg2 = buffer.reg2
 local static_alloc = buffer.static_alloc
+local cord_buf_take = buffer.internal.cord_buf_take
 
 local format = string.format
 
@@ -296,7 +297,7 @@ local function socket_sysread(self, arg1, arg2)
         error('socket:sysread(): size can not be negative')
     end
 
-    local buf = buffer.IBUF_SHARED
+    local buf = cord_buf_take()
     buf:reset()
     local p = buf:alloc(size)
 

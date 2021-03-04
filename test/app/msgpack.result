@@ -206,7 +206,7 @@ msgpack.decode(buf.rpos, buf:size() - 1)
 - error: 'msgpack.decode: invalid MsgPack'
 ...
 -- Provide a buffer. Try both 'struct ibuf' and 'struct ibuf *'.
-buf = buffer.IBUF_SHARED
+buf = buffer.internal.cord_buf_take()
 ---
 ...
 buf:reset()

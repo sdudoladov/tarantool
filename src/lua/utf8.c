@@ -33,11 +33,11 @@
 #include "coll/coll.h"
 #include "lua/utils.h"
 #include "lua/utf8.h"
+#include "cord_buf.h"
+#include "core/fiber.h"
 #include "diag.h"
 #include "small/ibuf.h"
 #include "tt_static.h"
-
-extern struct ibuf *tarantool_lua_ibuf;
 
 /** Collations for cmp/casecmp functions. */
 static struct coll *unicode_coll = NULL;
@@ -54,8 +54,9 @@ utf8_str_to_case(struct lua_State *L, const char *src, int src_bsize,
 	(void) i;
 	do {
 		UErrorCode err = U_ZERO_ERROR;
-		ibuf_reset(tarantool_lua_ibuf);
-		char *dst = ibuf_alloc(tarantool_lua_ibuf, dst_bsize);
+		struct ibuf *ibuf = cord_ibuf_take();
+		ibuf_reset(ibuf);
+		char *dst = ibuf_alloc(ibuf, dst_bsize);
 		if (dst == NULL) {
 			diag_set(OutOfMemory, dst_bsize, "ibuf_alloc", "dst");
 			return luaT_error(L);
@@ -249,8 +250,9 @@ utf8_char(struct lua_State *L)
 		return 1;
 	}
 	/* Slow way - use dynamic buffer. */
-	ibuf_reset(tarantool_lua_ibuf);
-	char *str = ibuf_alloc(tarantool_lua_ibuf, top * U8_MAX_LENGTH);
+	struct ibuf *ibuf = cord_ibuf_take();
+	ibuf_reset(ibuf);
+	char *str = ibuf_alloc(ibuf, top * U8_MAX_LENGTH);
 	if (str == NULL) {
 		diag_set(OutOfMemory, top * U8_MAX_LENGTH, "ibuf_alloc",
 			 "str");

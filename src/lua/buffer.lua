@@ -7,7 +7,9 @@ ffi.cdef[[
 struct slab_cache;
 struct slab_cache *
 tarantool_lua_slab_cache();
-extern struct ibuf *tarantool_lua_ibuf;
+
+struct ibuf *
+cord_ibuf_take(void);
 
 struct ibuf
 {
@@ -244,9 +246,13 @@ end
 --
 local reg_array = ffi.new('union c_register[?]', 2)
 
+local internal = {
+    cord_buf_take = ffi.C.cord_ibuf_take,
+}
+
 return {
+    internal = internal,
     ibuf = ibuf_new;
-    IBUF_SHARED = ffi.C.tarantool_lua_ibuf;
     READAHEAD = READAHEAD;
     static_alloc = static_alloc,
     -- Keep reference.

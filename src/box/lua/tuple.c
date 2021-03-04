@@ -36,6 +36,7 @@
 #include "diag.h" /* diag_set() */
 #include <small/ibuf.h>
 #include <small/region.h>
+#include "cord_buf.h"
 #include <fiber.h>
 
 #include "box/tuple.h"
@@ -137,7 +138,7 @@ luaT_istuple(struct lua_State *L, int narg)
 static int
 luaT_tuple_encode_values(struct lua_State *L)
 {
-	struct ibuf *buf = tarantool_lua_ibuf;
+	struct ibuf *buf = cord_ibuf_take();
 	ibuf_reset(buf);
 	struct mpstream stream;
 	mpstream_init(&stream, buf, ibuf_reserve_cb, ibuf_alloc_cb, luamp_error,
@@ -156,7 +157,7 @@ typedef void luaT_mpstream_init_f(struct mpstream *stream, struct lua_State *L);
 static void
 luaT_mpstream_init_lua_ibuf(struct mpstream *stream, struct lua_State *L)
 {
-	mpstream_init(stream, tarantool_lua_ibuf, ibuf_reserve_cb,
+	mpstream_init(stream, cord_ibuf_take(), ibuf_reserve_cb,
 		      ibuf_alloc_cb, luamp_error, L);
 }
 
@@ -228,7 +229,7 @@ static char *
 luaT_tuple_encode_on_lua_ibuf(struct lua_State *L, int idx,
 			      size_t *tuple_len_ptr)
 {
-	struct ibuf *buf = tarantool_lua_ibuf;
+	struct ibuf *buf = cord_ibuf_take();
 	ibuf_reset(buf);
 	if (luaT_tuple_encode_on_mpstream(L, idx,
 					  luaT_mpstream_init_lua_ibuf) != 0)
@@ -276,7 +277,7 @@ luaT_tuple_new(struct lua_State *L, int idx, box_tuple_format_t *format)
 					   tuple_data + tuple_len);
 	if (tuple == NULL)
 		return NULL;
-	ibuf_reinit(tarantool_lua_ibuf);
+	ibuf_reinit(cord_ibuf_take());
 	return tuple;
 }
 
@@ -295,7 +296,7 @@ lbox_tuple_new(lua_State *L)
 	 */
 	box_tuple_format_t *fmt = box_tuple_format_default();
 	if (argc != 1 || (!lua_istable(L, 1) && !luaT_istuple(L, 1))) {
-		struct ibuf *buf = tarantool_lua_ibuf;
+		struct ibuf *buf = cord_ibuf_take();
 		luaT_tuple_encode_values(L); /* may raise */
 		struct tuple *tuple = box_tuple_new(fmt, buf->buf,
 						    buf->buf + ibuf_used(buf));
@@ -559,7 +560,7 @@ lbox_tuple_transform(struct lua_State *L)
 		return 1;
 	}
 
-	struct ibuf *buf = tarantool_lua_ibuf;
+	struct ibuf *buf = cord_ibuf_take();
 	ibuf_reset(buf);
 	struct mpstream stream;
 	mpstream_init(&stream, buf, ibuf_reserve_cb, ibuf_alloc_cb,

@@ -5,6 +5,7 @@ local msgpackffi = require('msgpackffi')
 local fun = require('fun')
 local buffer = require('buffer')
 local internal = require('box.internal')
+local cord_buf_take = buffer.internal.cord_buf_take
 
 ffi.cdef[[
 /** \cond public */
@@ -72,7 +73,7 @@ local encode_array = msgpackffi.internal.encode_array
 local encode_r = msgpackffi.internal.encode_r
 
 local tuple_encode = function(obj)
-    local tmpbuf = buffer.IBUF_SHARED
+    local tmpbuf = cord_buf_take()
     tmpbuf:reset()
     if obj == nil then
         encode_fix(tmpbuf, 0x90, 0)  -- empty array

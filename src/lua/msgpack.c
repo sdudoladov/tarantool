@@ -46,6 +46,7 @@
 #include "lib/uuid/mp_uuid.h" /* mp_decode_uuid() */
 #include "lib/core/mp_extension_types.h"
 
+#include "cord_buf.h"
 #include <fiber.h>
 
 void
@@ -362,7 +363,7 @@ lua_msgpack_encode(lua_State *L)
 					  "must be of type 'struct ibuf'");
 		}
 	} else {
-		buf = tarantool_lua_ibuf;
+		buf = cord_ibuf_take();
 		ibuf_reset(buf);
 	}
 	size_t used = ibuf_used(buf);

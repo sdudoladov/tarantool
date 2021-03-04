@@ -65,7 +65,7 @@ msgpack.encode({1, 2, 3}, buf)
 msgpack.decode(buf.rpos, buf:size() - 1)
 
 -- Provide a buffer. Try both 'struct ibuf' and 'struct ibuf *'.
-buf = buffer.IBUF_SHARED
+buf = buffer.internal.cord_buf_take()
 buf:reset()
 size = msgpack.encode({a = 1, b = 2}, buf)
 (msgpack.decode(buf.rpos, size))

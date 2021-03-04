@@ -39,6 +39,7 @@
 #include <pmatomic.h>
 
 #include "assoc.h"
+#include "cord_buf.h"
 #include "memory.h"
 #include "trigger.h"
 #include "errinj.h"
@@ -1422,6 +1423,7 @@ cord_create(struct cord *cord, const char *name)
 	cord->sched.name = NULL;
 	fiber_set_name(&cord->sched, "sched");
 	cord->fiber = &cord->sched;
+	cord->buf = NULL;
 
 	cord->max_fid = FIBER_ID_MAX_RESERVED;
 	/*
@@ -1458,6 +1460,7 @@ cord_create(struct cord *cord, const char *name)
 void
 cord_destroy(struct cord *cord)
 {
+	cord_buf_destroy();
 	slab_cache_set_thread(&cord->slabc);
 	if (cord->loop)
 		ev_loop_destroy(cord->loop);

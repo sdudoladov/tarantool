@@ -59,6 +59,8 @@
 extern "C" {
 #endif /* defined(__cplusplus) */
 
+struct cord_buf;
+
 #if ENABLE_FIBER_TOP
 /* A fiber reports used up CPU time with nanosecond resolution. */
 #define FIBER_TIME_RES 1000000000
@@ -637,6 +639,7 @@ struct cord {
 	/** The fiber that is currently being executed. */
 	struct fiber *fiber;
 	struct ev_loop *loop;
+	struct cord_buf *buf;
 	/**
 	 * Every new fiber gets a new monotonic id. Ids 0 - 100 are
 	 * reserved.
