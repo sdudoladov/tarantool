@@ -2305,7 +2305,7 @@ sqlVdbeGetBoundValue(Vdbe * v, int iVar, u8 aff)
 		if (!mem_is_null(pMem)) {
 			sql_value *pRet = sqlValueNew(v->db);
 			if (pRet) {
-				sqlVdbeMemCopy((Mem *) pRet, pMem);
+				mem_copy((Mem *) pRet, pMem);
 				sql_value_apply_type(pRet, aff);
 			}
 			return pRet;
