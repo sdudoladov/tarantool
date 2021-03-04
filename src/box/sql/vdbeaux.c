@@ -2793,11 +2793,29 @@ vdbe_decode_msgpack_into_mem(const char *buf, struct Mem *mem, uint32_t *len)
 {
 	const char *start_buf = buf;
 	switch (mp_typeof(*buf)) {
-	case MP_ARRAY:
-	case MP_MAP:
-	case MP_EXT:
-	default: {
-		mem->flags = 0;
+	case MP_ARRAY: {
+		mem->z = (char *)buf;
+		mp_next(&buf);
+		mem->n = buf - mem->z;
+		mem->flags = MEM_Blob | MEM_Ephem | MEM_Subtype;
+		mem->subtype = SQL_SUBTYPE_MSGPACK;
+		mem->field_type = FIELD_TYPE_ARRAY;
+		break;
+	}
+	case MP_MAP: {
+		mem->z = (char *)buf;
+		mp_next(&buf);
+		mem->n = buf - mem->z;
+		mem->flags = MEM_Blob | MEM_Ephem | MEM_Subtype;
+		mem->subtype = SQL_SUBTYPE_MSGPACK;
+		mem->field_type = FIELD_TYPE_MAP;
+		break;
+	}
+	case MP_EXT: {
+		mem->z = (char *)buf;
+		mp_next(&buf);
+		mem->n = buf - mem->z;
+		mem->flags = MEM_Blob | MEM_Ephem;
 		break;
 	}
 	case MP_NIL: {
@@ -2846,6 +2864,8 @@ install_blob:
 		mem->flags = sqlIsNaN(mem->u.r) ? MEM_Null : MEM_Real;
 		break;
 	}
+	default:
+		unreachable();
 	}
 	*len = (uint32_t)(buf - start_buf);
 	return 0;
@@ -2868,15 +2888,8 @@ sqlVdbeRecordUnpackMsgpack(struct key_def *key_def,	/* Information about the rec
 		pMem->z = 0;
 		uint32_t sz = 0;
 		vdbe_decode_msgpack_into_mem(zParse, pMem, &sz);
-		if (sz == 0) {
-			/* MsgPack array, map or ext. Treat as blob. */
-			pMem->z = (char *)zParse;
-			mp_next(&zParse);
-			pMem->n = zParse - pMem->z;
-			pMem->flags = MEM_Blob | MEM_Ephem;
-		} else {
-			zParse += sz;
-		}
+		assert(sz != 0);
+		zParse += sz;
 		pMem++;
 	}
 }
