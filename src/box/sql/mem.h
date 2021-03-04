@@ -94,6 +94,12 @@ struct Mem {
 const char *
 mem_str(const struct Mem *mem);
 
+/**
+ * Initialize MEM and set NULL.
+ */
+void
+mem_create(struct Mem *mem);
+
 /* One or more of the following flags are set to indicate the validOK
  * representations of the value stored in the Mem struct.
  *
@@ -320,8 +326,6 @@ mem_set_double(struct Mem *mem, double value);
 
 int
 sqlVdbeMemSetStr(struct Mem *, const char *, int, u8, void (*)(void *));
-void
-sqlVdbeMemInit(struct Mem *, sql *, u32);
 void
 sqlVdbeMemSetNull(struct Mem *);
 void

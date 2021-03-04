@@ -64,6 +64,25 @@ mem_str(const struct Mem *mem)
 	return "unknown";
 }
 
+void
+mem_create(struct Mem *mem)
+{
+	mem->flags = MEM_Null;
+	mem->subtype = SQL_SUBTYPE_NO;
+	mem->field_type = field_type_MAX;
+	mem->n = 0;
+	mem->z = NULL;
+	mem->zMalloc = NULL;
+	mem->szMalloc = 0;
+	mem->uTemp = 0;
+	mem->db = sql_get();
+	mem->xDel = NULL;
+#ifdef SQL_DEBUG
+	mem->pScopyFrom = NULL;
+	mem->pFiller = NULL;
+#endif
+}
+
 static inline bool
 mem_has_msgpack_subtype(struct Mem *mem)
 {
@@ -1331,21 +1350,6 @@ sqlVdbeMemSetStr(Mem * pMem,	/* Memory cell to set to string value */
 	}
 
 	return 0;
-}
-
-/*
- * Initialize bulk memory to be a consistent Mem object.
- *
- * The minimum amount of initialization feasible is performed.
- */
-void
-sqlVdbeMemInit(Mem * pMem, sql * db, u32 flags)
-{
-	assert((flags & ~MEM_TypeMask) == 0);
-	pMem->flags = flags;
-	pMem->db = db;
-	pMem->szMalloc = 0;
-	pMem->field_type = field_type_MAX;
 }
 
 /*

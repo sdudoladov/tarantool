@@ -4707,7 +4707,7 @@ case OP_AggStep: {
 #endif
 
 	pMem->n++;
-	sqlVdbeMemInit(&t, db, MEM_Null);
+	mem_create(&t);
 	pCtx->pOut = &t;
 	pCtx->is_aborted = false;
 	pCtx->skipFlag = 0;

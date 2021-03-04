@@ -95,7 +95,7 @@ vdbemem_alloc_on_region(uint32_t count)
 	}
 	memset(ret, 0, count * sizeof(*ret));
 	for (uint32_t i = 0; i < count; i++) {
-		sqlVdbeMemInit(&ret[i], sql_get(), MEM_Null);
+		mem_create(&ret[i]);
 		assert(memIsValid(&ret[i]));
 	}
 	return ret;
