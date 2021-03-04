@@ -301,7 +301,7 @@ port_lua_get_vdbemem(struct port *base, uint32_t *size)
 	return (struct sql_value *)val;
 error:
 	for (int i = 0; i < argc; i++)
-		sqlVdbeMemRelease(&val[i]);
+		mem_destroy(&val[i]);
 	region_truncate(region, region_svp);
 	return NULL;
 }
@@ -373,7 +373,7 @@ port_c_get_vdbemem(struct port *base, uint32_t *size)
 	return (struct sql_value *) val;
 error:
 	for (int i = 0; i < port->size; i++)
-		sqlVdbeMemRelease(&val[i]);
+		mem_destroy(&val[i]);
 	region_truncate(region, region_svp);
 	return NULL;
 }
@@ -2102,7 +2102,7 @@ minMaxFinalize(sql_context * context)
 		if (pRes->flags) {
 			sql_result_value(context, pRes);
 		}
-		sqlVdbeMemRelease(pRes);
+		mem_destroy(pRes);
 	}
 }
 

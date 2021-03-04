@@ -100,6 +100,12 @@ mem_str(const struct Mem *mem);
 void
 mem_create(struct Mem *mem);
 
+/**
+ * Destroy MEM and set NULL.
+ */
+void
+mem_destroy(struct Mem *mem);
+
 /* One or more of the following flags are set to indicate the validOK
  * representations of the value stored in the Mem struct.
  *
@@ -441,7 +447,6 @@ int sqlVdbeMemCopy(Mem *, const Mem *);
 void sqlVdbeMemShallowCopy(Mem *, const Mem *, int);
 void sqlVdbeMemMove(Mem *, Mem *);
 int sqlVdbeMemMakeWriteable(Mem *);
-void sqlVdbeMemRelease(Mem * p);
 
 /**
  * Memory cell mem contains the context of an aggregate function.
