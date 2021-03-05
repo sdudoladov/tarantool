@@ -175,6 +175,9 @@ mem_copy(struct Mem *to, const struct Mem *from);
 int
 mem_copy_as_ephemeral(struct Mem *to, const struct Mem *from);
 
+int
+mem_move(struct Mem *to, struct Mem *from);
+
 /* One or more of the following flags are set to indicate the validOK
  * representations of the value stored in the Mem struct.
  *
@@ -512,8 +515,6 @@ mem_is_type_compatible(struct Mem *mem, enum field_type type);
 
 int
 vdbe_mem_alloc_blob_region(struct Mem *vdbe_mem, uint32_t size);
-void sqlVdbeMemMove(Mem *, Mem *);
-int sqlVdbeMemMakeWriteable(Mem *);
 
 /**
  * Memory cell mem contains the context of an aggregate function.
