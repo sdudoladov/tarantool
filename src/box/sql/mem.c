@@ -286,9 +286,9 @@ mem_copy_as_ephemeral(struct Mem *to, const struct Mem *from)
 	memcpy(to, from, MEMCELLSIZE);
 	if ((to->flags & (MEM_Str | MEM_Blob)) == 0)
 		return 0;
-	if ((to->flags & MEM_Static) != 0)
+	if ((to->flags & (MEM_Static | MEM_Ephem)) != 0)
 		return 0;
-	to->flags &= (MEM_Str | MEM_Blob | MEM_Term | MEM_Subtype);
+	to->flags &= (MEM_Str | MEM_Blob | MEM_Term | MEM_Zero | MEM_Subtype);
 	to->flags |= MEM_Ephem;
 	return 0;
 }
@@ -402,20 +402,6 @@ vdbeMemAddTerminator(Mem * pMem)
 	pMem->z[pMem->n + 1] = 0;
 	pMem->flags |= MEM_Term;
 	return 0;
-}
-
-/*
- * Make an shallow copy of pFrom into pTo.  Prior contents of
- * pTo are freed.  The pFrom->z field is not duplicated.  If
- * pFrom->z is used, then pTo->z points to the same thing as pFrom->z
- * and flags gets srcType (either MEM_Ephem or MEM_Static).
- */
-static SQL_NOINLINE void
-vdbeClrCopy(Mem * pTo, const Mem * pFrom, int eType)
-{
-	mem_clear(pTo);
-	assert(!VdbeMemDynamic(pTo));
-	sqlVdbeMemShallowCopy(pTo, pFrom, eType);
 }
 
 /*
@@ -597,9 +583,12 @@ sqlVdbeMemAboutToChange(Vdbe * pVdbe, Mem * pMem)
 	int i;
 	Mem *pX;
 	for (i = 0, pX = pVdbe->aMem; i < pVdbe->nMem; i++, pX++) {
-		if (pX->pScopyFrom == pMem) {
-			pX->flags |= MEM_Undefined;
-			pX->pScopyFrom = 0;
+		if ((pX->flags & (MEM_Blob | MEM_Str)) != 0 &&
+		    (pX->flags & (MEM_Ephem | MEM_Static)) == 0) {
+			if (pX->pScopyFrom == pMem) {
+				pX->flags |= MEM_Undefined;
+				pX->pScopyFrom = 0;
+			}
 		}
 	}
 	pMem->pScopyFrom = 0;
@@ -2060,22 +2049,6 @@ vdbe_mem_alloc_blob_region(struct Mem *vdbe_mem, uint32_t size)
 	vdbe_mem->flags = MEM_Ephem | MEM_Blob;
 	assert(sqlVdbeCheckMemInvariants(vdbe_mem));
 	return 0;
-}
-
-void
-sqlVdbeMemShallowCopy(Mem * pTo, const Mem * pFrom, int srcType)
-{
-	assert(pTo->db == pFrom->db);
-	if (VdbeMemDynamic(pTo)) {
-		vdbeClrCopy(pTo, pFrom, srcType);
-		return;
-	}
-	memcpy(pTo, pFrom, MEMCELLSIZE);
-	if ((pFrom->flags & MEM_Static) == 0) {
-		pTo->flags &= ~(MEM_Dyn | MEM_Static | MEM_Ephem);
-		assert(srcType == MEM_Ephem || srcType == MEM_Static);
-		pTo->flags |= srcType;
-	}
 }
 
 /*

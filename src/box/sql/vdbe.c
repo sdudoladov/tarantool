@@ -917,7 +917,7 @@ case OP_Variable: {            /* out2 */
 		goto too_big;
 	}
 	pOut = vdbe_prepare_null_out(p, pOp->p2);
-	sqlVdbeMemShallowCopy(pOut, pVar, MEM_Static);
+	mem_copy_as_ephemeral(pOut, pVar);
 	UPDATE_MAX_BLOBSIZE(pOut);
 	break;
 }
@@ -979,7 +979,7 @@ case OP_Copy: {
 	pOut = &aMem[pOp->p2];
 	assert(pOut!=pIn1);
 	while( 1) {
-		sqlVdbeMemShallowCopy(pOut, pIn1, MEM_Ephem);
+		mem_copy_as_ephemeral(pOut, pIn1);
 		Deephemeralize(pOut);
 #ifdef SQL_DEBUG
 		pOut->pScopyFrom = 0;
@@ -1009,7 +1009,7 @@ case OP_SCopy: {            /* out2 */
 	pIn1 = &aMem[pOp->p1];
 	pOut = &aMem[pOp->p2];
 	assert(pOut!=pIn1);
-	sqlVdbeMemShallowCopy(pOut, pIn1, MEM_Ephem);
+	mem_copy_as_ephemeral(pOut, pIn1);
 #ifdef SQL_DEBUG
 	if (pOut->pScopyFrom==0) pOut->pScopyFrom = pIn1;
 #endif
@@ -2295,7 +2295,7 @@ case OP_Column: {
 	if (mem_is_null(pDest) &&
 	    (uint32_t) p2  >= pC->field_ref.field_count &&
 	    default_val_mem != NULL) {
-		sqlVdbeMemShallowCopy(pDest, default_val_mem, MEM_Static);
+		mem_copy_as_ephemeral(pDest, default_val_mem);
 	}
 	pDest->field_type = field_type;
 op_column_out:
@@ -4470,7 +4470,7 @@ case OP_Param: {           /* out2 */
 	pOut = vdbe_prepare_null_out(p, pOp->p2);
 	pFrame = p->pFrame;
 	pIn = &pFrame->aMem[pOp->p1 + pFrame->aOp[pFrame->pc].p1];
-	sqlVdbeMemShallowCopy(pOut, pIn, MEM_Ephem);
+	mem_copy_as_ephemeral(pOut, pIn);
 	break;
 }
 
