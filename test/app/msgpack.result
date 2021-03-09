@@ -209,9 +209,6 @@ msgpack.decode(buf.rpos, buf:size() - 1)
 buf = buffer.internal.cord_buf_take()
 ---
 ...
-buf:reset()
----
-...
 size = msgpack.encode({a = 1, b = 2}, buf)
 ---
 ...

@@ -103,7 +103,6 @@ fio_methods.pread = function(self, buf, size, offset)
         offset = size
         size = buf
         tmpbuf = cord_buf_take()
-        tmpbuf:reset()
         buf = tmpbuf:reserve(size)
     end
     local res, err = internal.pread(self.fh, buf, size, offset)

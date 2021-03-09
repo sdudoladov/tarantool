@@ -572,7 +572,6 @@ lbox_tuple_transform(struct lua_State *L)
 	}
 
 	struct ibuf *buf = cord_ibuf_take();
-	ibuf_reset(buf);
 	struct mpstream stream;
 	mpstream_init(&stream, buf, ibuf_reserve_cb, ibuf_alloc_cb,
 		      luamp_error, L);
@@ -622,7 +621,6 @@ lbox_tuple_transform(struct lua_State *L)
 		luaT_error(L);
 
 	luaT_pushtuple(L, new_tuple);
-	ibuf_reset(buf);
 	return 1;
 }
 

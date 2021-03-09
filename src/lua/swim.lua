@@ -659,7 +659,6 @@ local function swim_set_payload(s, payload)
     local payload_size = 0
     if payload ~= nil then
         local buf = cord_buf_take()
-        buf:reset()
         payload_size = msgpack.encode(payload, buf)
         payload = buf.rpos
     end

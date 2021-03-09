@@ -296,7 +296,6 @@ end
 
 local function encode(obj)
     local tmpbuf = cord_buf_take()
-    tmpbuf:reset()
     encode_r(tmpbuf, obj, 0)
     local r = ffi.string(tmpbuf.rpos, tmpbuf:size())
     tmpbuf:recycle()

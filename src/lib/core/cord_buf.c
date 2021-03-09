@@ -15,8 +15,10 @@ cord_ibuf_take(void)
 {
 	struct cord *c = cord();
 	struct ibuf *buf = (struct ibuf *)c->buf;
-	if (buf != NULL)
+	if (buf != NULL) {
+		ibuf_reset(buf);
 		return buf;
+	}
 
 	buf = malloc(sizeof(*buf));
 	if (buf == NULL)

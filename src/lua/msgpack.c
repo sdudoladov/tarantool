@@ -364,7 +364,6 @@ lua_msgpack_encode(lua_State *L)
 		}
 	} else {
 		buf = cord_ibuf_take();
-		ibuf_reset(buf);
 	}
 	size_t used = ibuf_used(buf);
 

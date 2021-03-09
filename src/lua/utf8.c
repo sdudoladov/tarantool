@@ -55,7 +55,6 @@ utf8_str_to_case(struct lua_State *L, const char *src, int src_bsize,
 	do {
 		UErrorCode err = U_ZERO_ERROR;
 		struct ibuf *ibuf = cord_ibuf_take();
-		ibuf_reset(ibuf);
 		char *dst = ibuf_alloc(ibuf, dst_bsize);
 		if (dst == NULL) {
 			diag_set(OutOfMemory, dst_bsize, "ibuf_alloc", "dst");
@@ -251,7 +250,6 @@ utf8_char(struct lua_State *L)
 	}
 	/* Slow way - use dynamic buffer. */
 	struct ibuf *ibuf = cord_ibuf_take();
-	ibuf_reset(ibuf);
 	char *str = ibuf_alloc(ibuf, top * U8_MAX_LENGTH);
 	if (str == NULL) {
 		diag_set(OutOfMemory, top * U8_MAX_LENGTH, "ibuf_alloc",

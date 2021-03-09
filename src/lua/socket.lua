@@ -298,7 +298,6 @@ local function socket_sysread(self, arg1, arg2)
     end
 
     local buf = cord_buf_take()
-    buf:reset()
     local p = buf:alloc(size)
 
     local res = sysread(self, p, size)

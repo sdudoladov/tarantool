@@ -37,7 +37,6 @@ local function iconv_convert(iconv, data)
     local buf      = cord_buf_take();
     local buf_ptr  = char_ptr_arr_t()
     local buf_left = size_t_arr_t()
-    buf:reset()
 
     while data_left[0] > 0 do
         buf_ptr[0]  = buf:reserve(output_len)
@@ -60,7 +59,6 @@ local function iconv_convert(iconv, data)
     -- iconv function sets cd's conversion state to the initial state
     ffi.C.tnt_iconv(iconv, nil, nil, nil, nil)
     local result = ffi.string(buf.rpos, buf:size())
-    buf:reset()
     return result
 end
 
