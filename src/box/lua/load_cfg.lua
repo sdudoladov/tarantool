@@ -616,6 +616,79 @@ setmetatable(box, {
      end
 })
 
+local function process_option_value(option, raw_value)
+    local param_type = template_cfg[option]
+    if param_type == nil then
+        return nil
+    end
+    local value = nil
+    if param_type == 'number' or option == 'log_level' then
+        value = tonumber(raw_value)
+        if value == nil then
+            error("Environment variable "..'TT_'..string.upper(option).." has"..
+                  " incorrect value for option '"..option.."': should be "..
+                  "converted to number")
+        end
+    elseif param_type == 'boolean' or option == 'log_nonblock' then
+        if raw_value == 'true' then
+            value = true
+        elseif raw_value == 'false' then
+            value = false
+        else
+            error("Environment variable "..'TT_'..string.upper(option).." has"..
+                  " incorrect value for option '"..option.."': should be "..
+                  "'true' or 'false'")
+        end
+    elseif param_type == 'string, number' then
+        value = tonumber(raw_value)
+        if value == nil then
+            value = raw_value
+        end
+    elseif param_type == 'string, number, table' then
+        if string.sub(raw_value, 1, 1) == '{' and
+           string.sub(raw_value, -1) == '}' then
+            value = string.sub(raw_value, 2, -2)
+            value = require('csv').load(value)[1]
+            for i, str in pairs(value) do
+                if not (string.sub(str, 1, 1) == '\'' and
+                        string.sub(str, -1) == '\'') and
+                   not (string.sub(str, 1, 1) == '"' and
+                        string.sub(str, -1) == '"') then
+                    error("Environment variable "..'TT_'..string.upper(option)..
+                          " has incorrect value for option '"..option.."': "..
+                          "elements of array should be quoted strings")
+                end
+                str = string.sub(str, 2, -2)
+                value[i] = str
+            end
+        else
+            value = tonumber(raw_value)
+            if value == nil then
+                value = raw_value
+            end
+        end
+    else
+        value = raw_value
+    end
+
+    return value
+end
+
+local function collect_env_cfg(cfg)
+    if cfg == nil then
+        cfg = {}
+    end
+    for option, _ in pairs(template_cfg) do
+        if cfg[option] == nil or os.getenv('TARANTOOLCTL') == 'true' then
+            local env_var_name = 'TT_'..string.upper(option)
+            local raw_value = os.getenv(env_var_name)
+            if raw_value ~= nil then
+                cfg[option] = process_option_value(option, raw_value)
+            end
+        end
+    end
+end
+
 -- Whether box is loaded.
 --
 -- `false` when box is not configured or when the initialization
@@ -627,6 +700,7 @@ setmetatable(box, {
 local box_is_configured = false
 
 local function load_cfg(cfg)
+    collect_env_cfg(cfg)
     -- A user may save box.cfg (this function) before box loading
     -- and call it afterwards. We should reconfigure box in the
     -- case.

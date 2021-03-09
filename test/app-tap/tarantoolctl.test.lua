@@ -160,7 +160,7 @@ local function merge(...)
 end
 
 local test = tap.test('tarantoolctl')
-test:plan(8)
+test:plan(9)
 
 -- basic start/stop test
 -- must be stopped afterwards
@@ -631,5 +631,36 @@ test:test('filter_xlog', function(test)
         test:is_deeply(res, case.exp_result, case[1])
     end
 end)
+
+-- gh-5602: Check that environment cfg variables are more
+-- prioritized than tarantoolctl cfg.
+do
+    local dir = fio.tempdir()
+    local code = [[ box.cfg ]]
+    create_script(dir, 'show_cfg.lua',  code)
+    local code = [[ box.cfg{listen=3302, readahead=10001} ]]
+    create_script(dir, 'cfg_script.lua', code)
+
+    local status, err = pcall(function()
+        test:test("check answers in case of call", function(test_i)
+            test_i:plan(4)
+            os.setenv('TT_LISTEN', '3301')
+            os.setenv('TT_READAHEAD', '10000')
+            check_ok(test_i, dir, 'start', 'cfg_script', 0)
+            tctl_wait_start(dir, 'cfg_script')
+            check_ok(test_i, dir, 'eval',  'cfg_script show_cfg.lua', 0,
+                     '---\n- 3301\n- 10000\n...', nil)
+            check_ok(test_i, dir, 'stop', 'cfg_script', 0)
+        end)
+    end)
+
+    cleanup_instance(dir, 'cfg_script')
+    recursive_rmdir(dir)
+
+    if status == false then
+        print(("Error: %s"):format(err))
+        os.exit()
+    end
+end
 
 os.exit(test:check() == true and 0 or -1)
