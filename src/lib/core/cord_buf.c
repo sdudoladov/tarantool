@@ -9,6 +9,7 @@
 
 #include "small/ibuf.h"
 
+// REPLACE IT WITH ENUM !!!!!!!!!!!!!!!!!!!!!!!!
 #define CORD_IBUF_START_CAPACITY 16384
 
 struct cord_buf {
@@ -18,20 +19,22 @@ struct cord_buf {
 	struct fiber *owner;
 };
 
-static void
+static inline void
 cord_buf_set_owner(struct cord_buf *buf, struct fiber *f)
 {
 	assert(buf->owner == NULL);
+	// SLOW SHIT TRIGGERS!
 	trigger_add(&f->on_stop, &buf->on_stop);
 	trigger_add(&f->on_yield, &buf->on_yield);
 	buf->owner = f;
 	ibuf_reset(&buf->base);
 }
 
-static void
+static inline void
 cord_buf_clear_owner(struct cord_buf *buf)
 {
 	assert(buf->owner == fiber());
+	// SLOW SHIT TRIGGERS!
 	trigger_clear(&buf->on_stop);
 	trigger_clear(&buf->on_yield);
 	buf->owner = NULL;

@@ -108,6 +108,7 @@ end
 local function ibuf_recycle(buf)
     checkibuf(buf, 'recycle')
     builtin.ibuf_reinit(buf)
+    print('recycle')
 end
 
 local function ibuf_reset(buf)
