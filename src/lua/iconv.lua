@@ -2,6 +2,7 @@ local ffi    = require('ffi')
 local errno  = require('errno')
 local buffer = require('buffer')
 local cord_buf_take = buffer.internal.cord_buf_take
+local cord_buf_put = buffer.internal.cord_buf_put
 
 ffi.cdef[[
 typedef struct iconv *iconv_t;
@@ -45,6 +46,7 @@ local function iconv_convert(iconv, data)
                                 buf_ptr, buf_left)
         if res == ffi.cast('size_t', -1) and errno() ~= E2BIG then
             ffi.C.tnt_iconv(iconv, nil, nil, nil, nil)
+            cord_buf_put(buf)
             if errno() == EINVAL then
                 error('Invalid multibyte sequence')
             end
@@ -59,6 +61,7 @@ local function iconv_convert(iconv, data)
     -- iconv function sets cd's conversion state to the initial state
     ffi.C.tnt_iconv(iconv, nil, nil, nil, nil)
     local result = ffi.string(buf.rpos, buf:size())
+    cord_buf_put(buf)
     return result
 end
 

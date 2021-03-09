@@ -381,6 +381,7 @@ lua_msgpack_encode(lua_State *L)
 	} else {
 		lua_pushlstring(L, buf->buf, ibuf_used(buf));
 		ibuf_reinit(buf);
+		cord_ibuf_put(buf);
 	}
 	return 1;
 }

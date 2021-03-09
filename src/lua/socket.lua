@@ -14,6 +14,7 @@ local reg1 = buffer.reg1
 local reg2 = buffer.reg2
 local static_alloc = buffer.static_alloc
 local cord_buf_take = buffer.internal.cord_buf_take
+local cord_buf_put = buffer.internal.cord_buf_put
 
 local format = string.format
 
@@ -302,13 +303,11 @@ local function socket_sysread(self, arg1, arg2)
 
     local res = sysread(self, p, size)
     if res then
-        local str = ffi.string(p, res)
-        buf:recycle()
-        return str
-    else
-        buf:recycle()
-        return res
+        res = ffi.string(p, res)
     end
+    buf:recycle()
+    cord_buf_put(buf)
+    return res
 end
 
 local function socket_nonblock(self, nb)

@@ -15,6 +15,9 @@ struct ibuf *
 cord_ibuf_take(void);
 
 void
+cord_ibuf_put(struct ibuf *ibuf);
+
+void
 cord_buf_destroy(void);
 
 #if defined(__cplusplus)

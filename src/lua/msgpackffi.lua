@@ -11,6 +11,7 @@ local uint32_ptr_t = ffi.typeof('uint32_t *')
 local uint64_ptr_t = ffi.typeof('uint64_t *')
 local char_ptr_t = ffi.typeof('char *')
 local cord_buf_take = buffer.internal.cord_buf_take
+local cord_buf_put = buffer.internal.cord_buf_put
 
 ffi.cdef([[
 char *
@@ -299,6 +300,7 @@ local function encode(obj)
     encode_r(tmpbuf, obj, 0)
     local r = ffi.string(tmpbuf.rpos, tmpbuf:size())
     tmpbuf:recycle()
+    cord_buf_put(tmpbuf)
     return r
 end
 

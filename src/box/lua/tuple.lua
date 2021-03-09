@@ -6,6 +6,7 @@ local fun = require('fun')
 local buffer = require('buffer')
 local internal = require('box.internal')
 local cord_buf_take = buffer.internal.cord_buf_take
+local cord_buf_put = buffer.internal.cord_buf_put
 
 ffi.cdef[[
 /** \cond public */
@@ -72,8 +73,7 @@ local encode_fix = msgpackffi.internal.encode_fix
 local encode_array = msgpackffi.internal.encode_array
 local encode_r = msgpackffi.internal.encode_r
 
-local tuple_encode = function(obj)
-    local tmpbuf = cord_buf_take()
+local tuple_encode = function(tmpbuf, obj)
     if obj == nil then
         encode_fix(tmpbuf, 0x90, 0)  -- empty array
     elseif is_tuple(obj) then
@@ -229,8 +229,10 @@ local function tuple_update(tuple, expr)
     if type(expr) ~= 'table' then
         error("Usage: tuple:update({ { op, field, arg}+ })")
     end
-    local pexpr, pexpr_end = tuple_encode(expr)
+    local buf = cord_buf_take()
+    local pexpr, pexpr_end = tuple_encode(buf, expr)
     local tuple = builtin.box_tuple_update(tuple, pexpr, pexpr_end)
+    cord_buf_put(buf)
     if tuple == nil then
         return box.error()
     end
@@ -242,8 +244,10 @@ local function tuple_upsert(tuple, expr)
     if type(expr) ~= 'table' then
         error("Usage: tuple:upsert({ { op, field, arg}+ })")
     end
-    local pexpr, pexpr_end = tuple_encode(expr)
+    local buf = cord_buf_take()
+    local pexpr, pexpr_end = tuple_encode(buf, expr)
     local tuple = builtin.box_tuple_upsert(tuple, pexpr, pexpr_end)
+    cord_buf_put(buf)
     if tuple == nil then
         return box.error()
     end

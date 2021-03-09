@@ -52,12 +52,13 @@ utf8_str_to_case(struct lua_State *L, const char *src, int src_bsize,
 	int i = 0;
 	int dst_bsize = src_bsize;
 	(void) i;
+	struct ibuf *ibuf = cord_ibuf_take();
 	do {
 		UErrorCode err = U_ZERO_ERROR;
-		struct ibuf *ibuf = cord_ibuf_take();
 		char *dst = ibuf_alloc(ibuf, dst_bsize);
 		if (dst == NULL) {
 			diag_set(OutOfMemory, dst_bsize, "ibuf_alloc", "dst");
+			cord_ibuf_put(ibuf);
 			return luaT_error(L);
 		}
 		int real_bsize;
@@ -73,11 +74,13 @@ utf8_str_to_case(struct lua_State *L, const char *src, int src_bsize,
 		if (err == U_ZERO_ERROR ||
 		    err == U_STRING_NOT_TERMINATED_WARNING) {
 			lua_pushlstring(L, dst, real_bsize);
+			cord_ibuf_put(ibuf);
 			return 1;
 		} else if (err == U_BUFFER_OVERFLOW_ERROR) {
 			assert(real_bsize > dst_bsize);
 			dst_bsize = real_bsize;
 		} else {
+			cord_ibuf_put(ibuf);
 			lua_pushnil(L);
 			lua_pushstring(L, tt_sprintf("error during ICU case "\
 						     "transform: %s",
@@ -254,6 +257,7 @@ utf8_char(struct lua_State *L)
 	if (str == NULL) {
 		diag_set(OutOfMemory, top * U8_MAX_LENGTH, "ibuf_alloc",
 			 "str");
+		cord_ibuf_put(ibuf);
 		return luaT_error(L);
 	}
 	for (int i = 1; i <= top; ++i) {
@@ -261,6 +265,7 @@ utf8_char(struct lua_State *L)
 		U8_APPEND_UNSAFE(str, len, c);
 	}
 	lua_pushlstring(L, str, len);
+	cord_ibuf_put(ibuf);
 	return 1;
 }
 

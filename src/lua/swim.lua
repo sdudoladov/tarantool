@@ -7,6 +7,7 @@ local fiber = require('fiber')
 local internal = require('swim')
 local schedule_task = fiber._internal.schedule_task
 local cord_buf_take = buffer.internal.cord_buf_take
+local cord_buf_put = buffer.internal.cord_buf_put
 
 ffi.cdef[[
     struct swim;
@@ -656,13 +657,17 @@ end
 local function swim_set_payload(s, payload)
     local func_name = 'swim:set_payload'
     local ptr = swim_check_instance(s, func_name)
-    local payload_size = 0
-    if payload ~= nil then
+    local nok
+    if payload == nil then
+        nok = capi.swim_set_payload(ptr, nil, 0) ~= 0
+    else
         local buf = cord_buf_take()
-        payload_size = msgpack.encode(payload, buf)
+        local payload_size = msgpack.encode(payload, buf)
         payload = buf.rpos
+        nok = capi.swim_set_payload(ptr, payload, payload_size) ~= 0
+        cord_buf_put(buf)
     end
-    if capi.swim_set_payload(ptr, payload, payload_size) ~= 0 then
+    if nok then
         return nil, box.error.last()
     end
     return true

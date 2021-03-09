@@ -29,6 +29,13 @@ cord_ibuf_take(void)
 }
 
 void
+cord_ibuf_put(struct ibuf *ibuf)
+{
+	(void)ibuf;
+	assert(ibuf == (void *)cord()->buf);
+}
+
+void
 cord_buf_destroy(void)
 {
 	struct cord *c = cord();

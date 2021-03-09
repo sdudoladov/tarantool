@@ -11,6 +11,9 @@ tarantool_lua_slab_cache();
 struct ibuf *
 cord_ibuf_take(void);
 
+void
+cord_ibuf_put(struct ibuf *ibuf);
+
 struct ibuf
 {
     struct slab_cache *slabc;
@@ -248,6 +251,7 @@ local reg_array = ffi.new('union c_register[?]', 2)
 
 local internal = {
     cord_buf_take = ffi.C.cord_ibuf_take,
+    cord_buf_put = ffi.C.cord_ibuf_put,
 }
 
 return {

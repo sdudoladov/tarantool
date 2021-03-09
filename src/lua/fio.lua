@@ -7,6 +7,7 @@ local fiber = require('fiber')
 local errno = require('errno')
 local schedule_task = fiber._internal.schedule_task
 local cord_buf_take = buffer.internal.cord_buf_take
+local cord_buf_put = buffer.internal.cord_buf_put
 
 ffi.cdef[[
     int umask(int mask);
@@ -109,6 +110,7 @@ fio_methods.pread = function(self, buf, size, offset)
     if res == nil then
         if tmpbuf ~= nil then
             tmpbuf:recycle()
+            cord_buf_put(tmpbuf)
         end
         return nil, err
     end
@@ -116,6 +118,7 @@ fio_methods.pread = function(self, buf, size, offset)
         tmpbuf:alloc(res)
         res = ffi.string(tmpbuf.rpos, tmpbuf:size())
         tmpbuf:recycle()
+        cord_buf_put(tmpbuf)
     end
     return res
 end
