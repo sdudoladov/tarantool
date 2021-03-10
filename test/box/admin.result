@@ -55,6 +55,8 @@ cfg_filter(box.cfg)
     - 8
   - - hot_standby
     - false
+  - - iproto_threads
+    - 1
   - - listen
     - <hidden>
   - - log
