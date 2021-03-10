@@ -31,6 +31,8 @@ ffi.cdef[[
     uint32_t PMurHash32(uint32_t seed, const void *key, int len);
 ]]
 
+local builtin = ffi.C
+
 -- @sa base64.h
 local BASE64_NOPAD = 1
 local BASE64_NOWRAP = 2
@@ -53,12 +55,12 @@ local PMurHash_methods = {
         if type(str) ~= 'string' then
             error("Usage: murhash:update(string)")
         end
-        ffi.C.PMurHash32_Process(self.seed, self.value, str, string.len(str))
+        builtin.PMurHash32_Process(self.seed, self.value, str, string.len(str))
         self.total_length = self.total_length + string.len(str)
     end,
 
     result = function(self)
-        return ffi.C.PMurHash32_Result(self.seed[0], self.value[0], self.total_length)
+        return builtin.PMurHash32_Result(self.seed[0], self.value[0], self.total_length)
     end,
 
     clear = function(self)
@@ -95,7 +97,7 @@ setmetatable(PMurHash, {
         if type(str) ~= 'string' then
             error("Usage: digest.murhash(string)")
         end
-        return ffi.C.PMurHash32(PMurHash.default_seed, str, string.len(str))
+        return builtin.PMurHash32(PMurHash.default_seed, str, string.len(str))
     end
 })
 
@@ -105,7 +107,7 @@ local CRC32_methods = {
         if type(str) ~= 'string' then
             error("Usage crc32:update(string)")
         end
-        self.value = ffi.C.crc32_calc(self.value, str, string.len(str))
+        self.value = builtin.crc32_calc(self.value, str, string.len(str))
     end,
 
     result = function(self)
@@ -138,7 +140,7 @@ setmetatable(CRC32, {
         if type(str) ~= 'string' then
             error("Usage digest.crc32(string)")
         end
-        return ffi.C.crc32_calc(CRC32.crc_begin, str, string.len(str))
+        return builtin.crc32_calc(CRC32.crc_begin, str, string.len(str))
     end
 })
 
@@ -163,7 +165,7 @@ end
 local m = {
     base64_encode = function(bin, options)
         if type(bin) ~= 'string' or
-           options ~= nil and type(options) ~= 'table' then
+                options ~= nil and type(options) ~= 'table' then
             error('Usage: digest.base64_encode(string[, table])')
         end
         local mask = 0
@@ -179,9 +181,9 @@ local m = {
             end
         end
         local blen = #bin
-        local slen = ffi.C.base64_bufsize(blen, mask)
+        local slen = builtin.base64_bufsize(blen, mask)
         local str  = static_alloc('char', slen)
-        local len = ffi.C.base64_encode(bin, blen, str, slen, mask)
+        local len = builtin.base64_encode(bin, blen, str, slen, mask)
         return ffi.string(str, len)
     end,
 
@@ -192,7 +194,7 @@ local m = {
         local slen = #str
         local blen = math.ceil(slen * 3 / 4)
         local bin  = static_alloc('char', blen)
-        local len = ffi.C.base64_decode(str, slen, bin, blen)
+        local len = builtin.base64_decode(str, slen, bin, blen)
         return ffi.string(bin, len)
     end,
 
@@ -202,14 +204,14 @@ local m = {
         if type(str) ~= 'string' then
             error("Usage: digest.crc32_update(string)")
         end
-        return ffi.C.crc32_calc(tonumber(crc), str, string.len(str))
+        return builtin.crc32_calc(tonumber(crc), str, string.len(str))
     end,
 
     sha1 = function(str)
         if type(str) ~= 'string' then
             error("Usage: digest.sha1(string)")
         end
-        local r = ffi.C.SHA1internal(str, #str, nil)
+        local r = builtin.SHA1internal(str, #str, nil)
         return ffi.string(r, 20)
     end,
 
@@ -217,12 +219,12 @@ local m = {
         if type(str) ~= 'string' then
             error("Usage: digest.sha1_hex(string)")
         end
-        local r = ffi.C.SHA1internal(str, #str, nil)
+        local r = builtin.SHA1internal(str, #str, nil)
         return string.hex(ffi.string(r, 20))
     end,
 
     guava = function(state, buckets)
-       return ffi.C.guava(state, buckets)
+        return builtin.guava(state, buckets)
     end,
 
     urandom = function(n)
@@ -230,7 +232,7 @@ local m = {
             error('Usage: digest.urandom(len)')
         end
         local buf = static_alloc('char', n)
-        ffi.C.random_bytes(buf, n)
+        builtin.random_bytes(buf, n)
         return ffi.string(buf, n)
     end,
 
