@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017, Tarantool AUTHORS, please see AUTHORS file.
+ * Copyright 2020, Tarantool AUTHORS, please see AUTHORS file.
  *
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -28,42 +28,40 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include "journal.h"
-#include <small/region.h>
-#include <diag.h>
 
-struct journal *current_journal = NULL;
+#include "fiber_sem.h"
 
-#define JOURNAL_QUEUE_DEFAULT_MAX_SIZE 100 * 1024 * 1024 /* 100 megabytes */
-
-struct journal_queue journal_queue = {
-	.max_size = JOURNAL_QUEUE_DEFAULT_MAX_SIZE,
-	.sem = {
-		.count = JOURNAL_QUEUE_DEFAULT_MAX_SIZE,
-		.waiters = RLIST_HEAD_INITIALIZER(journal_queue.sem.waiters),
-		.waiter_count = 0,
-	},
-};
-
-struct journal_entry *
-journal_entry_new(size_t n_rows, struct region *region,
-		  journal_write_async_f write_async_cb,
-		  void *complete_data)
+void
+fiber_sem_wakeup(struct fiber_sem *sem)
 {
-	struct journal_entry *entry;
+	struct rlist *list = &sem->waiters;
+	if (!rlist_empty(list) && sem->count > 0)
+		fiber_wakeup(rlist_first_entry(list, struct fiber, state));
+}
 
-	size_t size = (sizeof(struct journal_entry) +
-		       sizeof(entry->rows[0]) * n_rows);
+void
+fiber_sem_wait(struct fiber_sem *sem)
+{
+	sem->waiter_count++;
+	rlist_add_tail_entry(&sem->waiters, fiber(), state);
 
-	entry = region_aligned_alloc(region, size,
-				     alignof(struct journal_entry));
-	if (entry == NULL) {
-		diag_set(OutOfMemory, size, "region", "struct journal_entry");
-		return NULL;
-	}
+	fiber_yield();
+	/*
+	 * Decrease waiter count only after actually waking up.
+	 * This is done to ensure noone else can squeeze in front of this fiber,
+	 * when, say, it's already waken, but hasn't been put to execution yet.
+	 */
+	sem->waiter_count--;
+	fiber_sem_wakeup(sem);
+}
 
-	journal_entry_create(entry, n_rows, 0, write_async_cb,
-			     complete_data);
-	return entry;
+void
+fiber_sem_wakeup_all(struct fiber_sem *sem)
+{
+	if (!fiber_sem_has_waiters(sem))
+		return;
+	struct rlist *list = &sem->waiters;
+	while (!rlist_empty(list))
+		fiber_wakeup(rlist_first_entry(list, struct fiber, state));
 }
 

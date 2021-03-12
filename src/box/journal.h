@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include "salad/stailq.h"
 #include "fiber.h"
+#include "fiber_sem.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -112,16 +113,8 @@ journal_entry_new(size_t n_rows, struct region *region,
 struct journal_queue {
 	/** Maximal size of entries enqueued in journal (in bytes). */
 	int64_t max_size;
-	/** Current approximate size of journal queue. */
-	int64_t size;
-	/**
-	 * The fibers waiting for some space to free in journal queue.
-	 * Once some space is freed they will be waken up in the same order they
-	 * entered the queue.
-	 */
-	struct rlist waiters;
-	/** How many waiters there are in a queue. */
-	int waiter_count;
+	/** A semaphore used for all the queueing. */
+	struct fiber_sem sem;
 };
 
 /** A single queue for all journal instances. */
@@ -143,42 +136,33 @@ struct journal {
 };
 
 /** Wake the journal queue up. */
-void
-journal_queue_wakeup(void);
-
-/**
- * Check whether anyone is waiting for the journal queue to empty. If there are
- * other waiters we must go after them to preserve write order.
- */
-static inline bool
-journal_queue_has_waiters(void)
+static inline void
+journal_queue_wakeup()
 {
-	return journal_queue.waiter_count != 0;
-}
-
-/**
- * Check whether any of the queue size limits is reached.
- * If the queue is full, we must wait for some of the entries to be written
- * before proceeding with a new asynchronous write request.
- */
-static inline bool
-journal_queue_is_full(void)
-{
-	return journal_queue.size >= journal_queue.max_size;
+	fiber_sem_wakeup(&journal_queue.sem);
 }
 
 /** Yield until there's some space in the journal queue. */
-void
-journal_queue_wait(void);
+static inline void
+journal_queue_wait(void)
+{
+	if (fiber_sem_would_block(&journal_queue.sem))
+		fiber_sem_wait(&journal_queue.sem);
+}
 
 /** Empty the queue by waking everyone in it up and put self to queue tail. */
-void
-journal_queue_flush(void);
+static inline void
+journal_queue_flush(void)
+{
+	fiber_sem_wakeup_all(&journal_queue.sem);
+	journal_queue_wait();
+}
 
 /** Set maximal journal queue size in bytes. */
 static inline void
 journal_queue_set_max_size(int64_t size)
 {
+	journal_queue.sem.count += size - journal_queue.max_size;
 	journal_queue.max_size = size;
 	journal_queue_wakeup();
 }
@@ -187,15 +171,14 @@ journal_queue_set_max_size(int64_t size)
 static inline void
 journal_queue_on_append(struct journal_entry *entry)
 {
-	journal_queue.size += entry->approx_len;
+	fiber_sem_take(&journal_queue.sem, entry->approx_len);
 }
 
 /** Decrease queue size once write request is complete. */
 static inline void
 journal_queue_on_complete(struct journal_entry *entry)
 {
-	journal_queue.size -= entry->approx_len;
-	assert(journal_queue.size >= 0);
+	fiber_sem_release(&journal_queue.sem, entry->approx_len);
 }
 
 /**
@@ -233,6 +216,7 @@ journal_write(struct journal_entry *entry)
 
 /**
  * Queue a single entry to the journal in asynchronous way.
+ * Note, this may still incur a synchronous wait if journal queue is full.
  *
  * @return 0 if write was queued to a backend or -1 in case of an error.
  */

@@ -10,6 +10,7 @@ set(core_sources
     fiber_pool.c
     fiber_cond.c
     fiber_channel.c
+    fiber_sem.c
     latch.c
     sio.c
     evio.c
