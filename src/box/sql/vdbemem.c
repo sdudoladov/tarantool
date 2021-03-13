@@ -527,7 +527,13 @@ int
 sql_stat4_column(struct sql *db, const char *record, uint32_t col_num,
 		 sql_value **res)
 {
+	(void)db;
+	(void)record;
+	(void)col_num;
+	(void)res;
+	return 0;
 	/* Write result into this Mem object. */
+	/*
 	struct Mem *mem = *res;
 	const char *a = record;
 	assert(mp_typeof(a[0]) == MP_ARRAY);
@@ -547,6 +553,7 @@ sql_stat4_column(struct sql *db, const char *record, uint32_t col_num,
 	}
 	uint32_t unused;
 	return vdbe_decode_msgpack_into_mem(a, mem, &unused);
+	*/
 }
 
 /*
@@ -557,6 +564,9 @@ sql_stat4_column(struct sql *db, const char *record, uint32_t col_num,
 void
 sqlStat4ProbeFree(UnpackedRecord * pRec)
 {
+	assert(pRec == NULL);
+	(void)pRec;
+	/*
 	if (pRec != NULL) {
 		int part_count = pRec->key_def->part_count;
 		struct Mem *aMem = pRec->aMem;
@@ -564,4 +574,5 @@ sqlStat4ProbeFree(UnpackedRecord * pRec)
 			sqlVdbeMemRelease(&aMem[i]);
 		sqlDbFree(aMem[0].db, pRec);
 	}
+	*/
 }
