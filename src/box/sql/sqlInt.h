@@ -471,6 +471,10 @@ const unsigned char *
 sql_column_text(sql_stmt *,
 		    int iCol);
 
+char *
+sql_result_to_msgpack(struct sql_stmt *stmt, uint32_t *tuple_size,
+		      struct region *region);
+
 enum mp_type
 sql_column_type(sql_stmt *stmt, int field_no);
 

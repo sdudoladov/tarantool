@@ -515,6 +515,15 @@ sql_column_text(sql_stmt * pStmt, int i)
 	return sql_value_text(columnMem(pStmt, i));
 }
 
+char *
+sql_result_to_msgpack(struct sql_stmt *stmt, uint32_t *tuple_size,
+		      struct region *region)
+{
+	struct Vdbe *vdbe = (struct Vdbe *)stmt;
+	return sql_vdbe_mem_encode_tuple(vdbe->pResultSet, vdbe->nResColumn,
+					 tuple_size, region);
+}
+
 enum mp_type
 sql_column_type(sql_stmt * pStmt, int i)
 {
