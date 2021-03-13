@@ -274,7 +274,7 @@ mem_copy(struct Mem *to, const struct Mem *from)
 	to->szMalloc = sqlDbMallocSize(to->db, to->zMalloc);
 	memcpy(to->zMalloc, to->z, to->n);
 	to->z = to->zMalloc;
-	to->flags &= (MEM_Str | MEM_Blob | MEM_Term);
+	to->flags &= (MEM_Str | MEM_Blob | MEM_Term | MEM_Subtype);
 	return 0;
 }
 
@@ -288,7 +288,7 @@ mem_copy_as_ephemeral(struct Mem *to, const struct Mem *from)
 		return 0;
 	if ((to->flags & MEM_Static) != 0)
 		return 0;
-	to->flags &= (MEM_Str | MEM_Blob | MEM_Term);
+	to->flags &= (MEM_Str | MEM_Blob | MEM_Term | MEM_Subtype);
 	to->flags |= MEM_Ephem;
 	return 0;
 }
