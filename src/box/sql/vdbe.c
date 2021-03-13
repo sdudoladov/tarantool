@@ -1028,59 +1028,11 @@ case OP_ResultRow: {
  * types (i.e. TEXT and BLOB).
  */
 case OP_Concat: {           /* same as TK_CONCAT, in1, in2, out3 */
-	i64 nByte;
-
 	pIn1 = &aMem[pOp->p1];
 	pIn2 = &aMem[pOp->p2];
-	pOut = vdbe_prepare_null_out(p, pOp->p3);
-	assert(pIn1!=pOut);
-	if (mem_is_null(pIn1) || mem_is_null(pIn2)) {
-		/* Force NULL be of type STRING. */
-		pOut->field_type = FIELD_TYPE_STRING;
-		break;
-	}
-	/*
-	 * Concatenation operation can be applied only to
-	 * strings and blobs.
-	 */
-	bool str_type_p1 = mem_is_varstring(pIn1);
-	bool str_type_p2 = mem_is_varstring(pIn2);
-	if (!str_type_p1 || !str_type_p2) {
-		char *inconsistent_type = !str_type_p1 ?
-					  mem_type_to_str(pIn1) :
-					  mem_type_to_str(pIn2);
-		diag_set(ClientError, ER_INCONSISTENT_TYPES,
-			 "text or varbinary", inconsistent_type);
+	pOut = &aMem[pOp->p3];
+	if (mem_concat(pIn2, pIn1, pOut) != 0)
 		goto abort_due_to_error;
-	}
-
-	/* Moreover, both operands must be of the same type. */
-	if (mem_is_string(pIn1) != mem_is_string(pIn2)) {
-		diag_set(ClientError, ER_INCONSISTENT_TYPES,
-			 mem_type_to_str(pIn2), mem_type_to_str(pIn1));
-		goto abort_due_to_error;
-	}
-	if (ExpandBlob(pIn1) != 0 || ExpandBlob(pIn2) != 0)
-		goto abort_due_to_error;
-	nByte = pIn1->n + pIn2->n;
-	if (nByte>db->aLimit[SQL_LIMIT_LENGTH]) {
-		goto too_big;
-	}
-	if (sqlVdbeMemGrow(pOut, (int)nByte+2, pOut==pIn2)) {
-		goto no_mem;
-	}
-	if (mem_is_string(pIn1))
-		MemSetTypeFlag(pOut, MEM_Str);
-	else
-		MemSetTypeFlag(pOut, MEM_Blob);
-	if (pOut!=pIn2) {
-		memcpy(pOut->z, pIn2->z, pIn2->n);
-	}
-	memcpy(&pOut->z[pIn2->n], pIn1->z, pIn1->n);
-	pOut->z[nByte]=0;
-	pOut->z[nByte+1] = 0;
-	pOut->flags |= MEM_Term;
-	pOut->n = (int)nByte;
 	UPDATE_MAX_BLOBSIZE(pOut);
 	break;
 }
