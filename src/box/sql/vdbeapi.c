@@ -524,18 +524,6 @@ sql_result_to_msgpack(struct sql_stmt *stmt, uint32_t *tuple_size,
 					 tuple_size, region);
 }
 
-enum mp_type
-sql_column_type(sql_stmt * pStmt, int i)
-{
-	return sql_value_type(columnMem(pStmt, i));
-}
-
-enum sql_subtype
-sql_column_subtype(struct sql_stmt *stmt, int i)
-{
-	return sql_value_subtype(columnMem(stmt, i));
-}
-
 /*
  * Return the name of the Nth column of the result set returned by SQL
  * statement pStmt.

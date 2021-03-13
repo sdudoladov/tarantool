@@ -351,16 +351,6 @@ sql_stricmp(const char *, const char *);
 int
 sql_strnicmp(const char *, const char *, int);
 
-
-/**
- * Get row column subtype.
- * @param stmt row data to process.
- * @param i column index.
- * @retval SQL subtype if any, 0 else.
- */
-enum sql_subtype
-sql_column_subtype(struct sql_stmt *stmt, int i);
-
 sql *
 sql_context_db_handle(sql_context *);
 
@@ -474,9 +464,6 @@ sql_column_text(sql_stmt *,
 char *
 sql_result_to_msgpack(struct sql_stmt *stmt, uint32_t *tuple_size,
 		      struct region *region);
-
-enum mp_type
-sql_column_type(sql_stmt *stmt, int field_no);
 
 /*
  * Terminate the current execution of an SQL statement and reset
