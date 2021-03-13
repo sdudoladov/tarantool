@@ -552,7 +552,22 @@ int sqlVdbeRecordCompareMsgpack(const void *key1,
 				    struct UnpackedRecord *key2);
 
 /**
- * Decode msgpack and save value into VDBE memory cell.
+ * Decode msgpack and save value into VDBE memory cell. String and binary string
+ * values set as ephemeral.
+ *
+ * @param buf Buffer to deserialize msgpack from.
+ * @param mem Memory cell to write value into.
+ * @param len[out] Length of decoded part.
+ * @retval Return code: < 0 in case of error.
+ * @retval 0 on success.
+ */
+int
+vdbe_decode_msgpack_into_ephemeral_mem(const char *buf, struct Mem *mem,
+				       uint32_t *len);
+
+/**
+ * Decode msgpack and save value into VDBE memory cell. String and binary string
+ * values copied to newly allocated memory.
  *
  * @param buf Buffer to deserialize msgpack from.
  * @param mem Memory cell to write value into.

@@ -2271,7 +2271,8 @@ sqlVdbeRecordCompareMsgpack(const void *key1,
 }
 
 int
-vdbe_decode_msgpack_into_mem(const char *buf, struct Mem *mem, uint32_t *len)
+vdbe_decode_msgpack_into_ephemeral_mem(const char *buf, struct Mem *mem,
+				       uint32_t *len)
 {
 	const char *start_buf = buf;
 	switch (mp_typeof(*buf)) {
@@ -2369,6 +2370,19 @@ install_blob:
 		unreachable();
 	}
 	*len = (uint32_t)(buf - start_buf);
+	return 0;
+}
+
+int
+vdbe_decode_msgpack_into_mem(const char *buf, struct Mem *mem, uint32_t *len)
+{
+	if (vdbe_decode_msgpack_into_ephemeral_mem(buf, mem, len) != 0)
+		return -1;
+	if ((mem->flags & (MEM_Str | MEM_Blob)) != 0) {
+		assert((mem->flags & MEM_Ephem) != 0);
+		if (sqlVdbeMemGrow(mem, mem->n, 1) != 0)
+			return -1;
+	}
 	return 0;
 }
 

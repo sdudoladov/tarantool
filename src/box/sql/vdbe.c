@@ -373,7 +373,7 @@ vdbe_field_ref_fetch(struct vdbe_field_ref *field_ref, uint32_t fieldno,
 	assert(sqlVdbeCheckMemInvariants(dest_mem) != 0);
 	const char *data = vdbe_field_ref_fetch_data(field_ref, fieldno);
 	uint32_t dummy;
-	if (vdbe_decode_msgpack_into_mem(data, dest_mem, &dummy) != 0)
+	if (vdbe_decode_msgpack_into_ephemeral_mem(data, dest_mem, &dummy) != 0)
 		return -1;
 
 	/*
