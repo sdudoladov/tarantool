@@ -101,22 +101,6 @@ sql_stmt_reset(sql_stmt *pStmt)
 	return rc;
 }
 
-/*
- * Set all the parameters in the compiled SQL statement to NULL.
- */
-int
-sql_clear_bindings(sql_stmt * pStmt)
-{
-	int i;
-	int rc = 0;
-	Vdbe *p = (Vdbe *) pStmt;
-	for (i = 0; i < p->nVar; i++) {
-		sqlVdbeMemRelease(&p->aVar[i]);
-		p->aVar[i].flags = MEM_Null;
-	}
-	return rc;
-}
-
 bool
 sql_metadata_is_full()
 {
