@@ -515,17 +515,6 @@ sql_column_text(sql_stmt * pStmt, int i)
 	return sql_value_text(columnMem(pStmt, i));
 }
 
-sql_value *
-sql_column_value(sql_stmt * pStmt, int i)
-{
-	Mem *pOut = columnMem(pStmt, i);
-	if (pOut->flags & MEM_Static) {
-		pOut->flags &= ~MEM_Static;
-		pOut->flags |= MEM_Ephem;
-	}
-	return (sql_value *) pOut;
-}
-
 enum mp_type
 sql_column_type(sql_stmt * pStmt, int i)
 {
