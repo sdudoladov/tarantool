@@ -56,109 +56,116 @@ sql_exec(sql * db,	/* The database on which the SQL executes */
 	     void *pArg	/* First argument to xCallback() */
     )
 {
-	int rc = 0;	/* Return code */
-	const char *zLeftover;	/* Tail of unprocessed SQL */
-	sql_stmt *pStmt = 0;	/* The current SQL statement */
-	char **azCols = 0;	/* Names of result columns */
-	int callbackIsInit;	/* True if callback data is initialized */
+	(void)db;
+	(void)zSql;
+	(void)xCallback;
+	(void)pArg;
+	unreachable();
+	return 0;
 
-	assert(db != NULL);
-	if (zSql == 0)
-		zSql = "";
+	/* TODO: Uncomment when stat-tables will be revived.*/
+	// int rc = 0;	/* Return code */
+	// const char *zLeftover;	/* Tail of unprocessed SQL */
+	// sql_stmt *pStmt = 0;	/* The current SQL statement */
+	// char **azCols = 0;	/* Names of result columns */
+	// int callbackIsInit;	/* True if callback data is initialized */
 
-	while (rc == 0 && zSql[0] != 0) {
-		int nCol;
-		char **azVals = 0;
+	// assert(db != NULL);
+	// if (zSql == 0)
+	// 	zSql = "";
 
-		pStmt = 0;
-		rc = sql_stmt_compile(zSql, -1, NULL, &pStmt, &zLeftover);
-		assert(rc == 0 || pStmt == NULL);
-		if (rc != 0)
-			continue;
-		if (!pStmt) {
-			/* this happens for a comment or white-space */
-			zSql = zLeftover;
-			continue;
-		}
+	// while (rc == 0 && zSql[0] != 0) {
+	// 	int nCol;
+	// 	char **azVals = 0;
 
-		callbackIsInit = 0;
-		nCol = sql_column_count(pStmt);
+	// 	pStmt = 0;
+	// 	rc = sql_stmt_compile(zSql, -1, NULL, &pStmt, &zLeftover);
+	// 	assert(rc == 0 || pStmt == NULL);
+	// 	if (rc != 0)
+	// 		continue;
+	// 	if (!pStmt) {
+	// 		/* this happens for a comment or white-space */
+	// 		zSql = zLeftover;
+	// 		continue;
+	// 	}
 
-		while (1) {
-			int i;
-			rc = sql_step(pStmt);
-			/* Invoke the callback function if required */
-			if (xCallback != NULL && rc == SQL_ROW) {
-				if (!callbackIsInit) {
-					azCols =
-					    sqlDbMallocZero(db,
-								2 * nCol *
-								sizeof(const
-								       char *) +
-								1);
-					if (azCols == 0) {
-						goto exec_out;
-					}
-					for (i = 0; i < nCol; i++) {
-						azCols[i] =
-						    (char *)
-						    sql_column_name(pStmt,
-									i);
-						/* vdbe_metadata_set_col_name() installs column names as UTF8
-						 * strings so there is no way for sql_column_name() to fail.
-						 */
-						assert(azCols[i] != 0);
-					}
-					callbackIsInit = 1;
-				}
-				if (rc == SQL_ROW) {
-					azVals = &azCols[nCol];
-					for (i = 0; i < nCol; i++) {
-						azVals[i] =
-						    (char *)
-						    sql_column_text(pStmt,
-									i);
-						if (!azVals[i]
-						    &&
-						    sql_column_type(pStmt,
-									i) !=
-						    MP_NIL) {
-							sqlOomFault(db);
-							goto exec_out;
-						}
-					}
-				}
-				if (xCallback(pArg, nCol, azVals, azCols)) {
-					/* EVIDENCE-OF: R-38229-40159 If the callback function to
-					 * sql_exec() returns non-zero, then sql_exec() will
-					 * return -1.
-					 */
-					rc = -1;
-					sqlVdbeFinalize((Vdbe *) pStmt);
-					pStmt = 0;
-					goto exec_out;
-				}
-			}
+	// 	callbackIsInit = 0;
+	// 	nCol = sql_column_count(pStmt);
 
-			if (rc != SQL_ROW) {
-				rc = sqlVdbeFinalize((Vdbe *) pStmt);
-				pStmt = 0;
-				zSql = zLeftover;
-				while (sqlIsspace(zSql[0]))
-					zSql++;
-				break;
-			}
-		}
+	// 	while (1) {
+	// 		int i;
+	// 		rc = sql_step(pStmt);
+	// 		/* Invoke the callback function if required */
+	// 		if (xCallback != NULL && rc == SQL_ROW) {
+	// 			if (!callbackIsInit) {
+	// 				azCols =
+	// 				    sqlDbMallocZero(db,
+	// 							2 * nCol *
+	// 							sizeof(const
+	// 							       char *) +
+	// 							1);
+	// 				if (azCols == 0) {
+	// 					goto exec_out;
+	// 				}
+	// 				for (i = 0; i < nCol; i++) {
+	// 					azCols[i] =
+	// 					    (char *)
+	// 					    sql_column_name(pStmt,
+	// 								i);
+	// 					 vdbe_metadata_set_col_name() installs column names as UTF8
+	// 					 * strings so there is no way for sql_column_name() to fail.
+	// 					assert(azCols[i] != 0);
+	// 				}
+	// 				callbackIsInit = 1;
+	// 			}
+	// 			if (rc == SQL_ROW) {
+	// 				azVals = &azCols[nCol];
+	// 				for (i = 0; i < nCol; i++) {
+	// 					azVals[i] =
+	// 					    (char *)
+	// 					    sql_column_text(pStmt,
+	// 								i);
+	// 					if (!azVals[i]
+	// 					    &&
+	// 					    sql_column_type(pStmt,
+	// 								i) !=
+	// 					    MP_NIL) {
+	// 						sqlOomFault(db);
+	// 						goto exec_out;
+	// 					}
+	// 				}
+	// 			}
+	// 			if (xCallback(pArg, nCol, azVals, azCols)) {
+	// 				/* EVIDENCE-OF: R-38229-40159 If the callback function to
+	// 				 * sql_exec() returns non-zero, then sql_exec() will
+	// 				 * return -1.
+	// 				 */
+	// 				rc = -1;
+	// 				sqlVdbeFinalize((Vdbe *) pStmt);
+	// 				pStmt = 0;
+	// 				goto exec_out;
+	// 			}
+	// 		}
 
-		sqlDbFree(db, azCols);
-		azCols = 0;
-	}
+	// 		if (rc != SQL_ROW) {
+	// 			rc = sqlVdbeFinalize((Vdbe *) pStmt);
+	// 			pStmt = 0;
+	// 			zSql = zLeftover;
+	// 			while (sqlIsspace(zSql[0]))
+	// 				zSql++;
+	// 			break;
+	// 		}
+	// 	}
 
- exec_out:
-	if (pStmt)
-		sqlVdbeFinalize((Vdbe *) pStmt);
-	sqlDbFree(db, azCols);
+	// 	sqlDbFree(db, azCols);
+	// 	azCols = 0;
+	// }
 
-	assert(rc == 0);
-	return rc;
+ // exec_out:
+	// if (pStmt)
+	// 	sqlVdbeFinalize((Vdbe *) pStmt);
+	// sqlDbFree(db, azCols);
+
+	// assert(rc == 0);
+	// return rc;
 }
