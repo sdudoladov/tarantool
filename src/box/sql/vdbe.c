@@ -846,16 +846,6 @@ vdbe_field_ref_fetch_data(struct vdbe_field_ref *field_ref, uint32_t fieldno)
 	return field_begin;
 }
 
-static inline enum field_type
-vdbe_field_ref_fetch_type(struct vdbe_field_ref *field_ref, uint32_t fieldno)
-{
-	const struct tuple_field *tf =
-		vdbe_field_ref_fetch_field(field_ref, fieldno);
-	if (tf == NULL || tf->type == FIELD_TYPE_ANY)
-		return field_type_MAX;
-	return tf->type;
-}
-
 /**
  * Fetch field by fieldno using vdbe_field_ref and store result
  * in dest_mem.
@@ -898,7 +888,6 @@ vdbe_field_ref_fetch(struct vdbe_field_ref *field_ref, uint32_t fieldno,
 		dest_mem->flags |= MEM_Term;
 	}
 	UPDATE_MAX_BLOBSIZE(dest_mem);
-	dest_mem->field_type = vdbe_field_ref_fetch_type(field_ref, fieldno);
 	return 0;
 }
 
