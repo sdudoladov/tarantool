@@ -1543,15 +1543,9 @@ case OP_Le:               /* same as TK_LE, jump, in1, in3 */
 case OP_Gt:               /* same as TK_GT, jump, in1, in3 */
 case OP_Ge: {             /* same as TK_GE, jump, in1, in3 */
 	int res, res2;      /* Result of the comparison of pIn1 against pIn3 */
-	u32 flags1;         /* Copy of initial value of pIn1->flags */
-	u32 flags3;         /* Copy of initial value of pIn3->flags */
 
 	pIn1 = &aMem[pOp->p1];
 	pIn3 = &aMem[pOp->p3];
-	flags1 = pIn1->flags;
-	flags3 = pIn3->flags;
-	enum field_type ft_p1 = pIn1->field_type;
-	enum field_type ft_p3 = pIn3->field_type;
 	if (mem_is_null(pIn1) || mem_is_null(pIn3)) {
 		/* One or both operands are NULL */
 		if (pOp->p5 & SQL_NULLEQ) {
@@ -1585,85 +1579,11 @@ case OP_Ge: {             /* same as TK_GE, jump, in1, in3 */
 			}
 			break;
 		}
-	} else if (mem_is_boolean(pIn1) || mem_is_boolean(pIn3) ||
-		   mem_is_binary(pIn1) || mem_is_binary(pIn3)) {
-		if (!mem_is_same_type(pIn1, pIn3)) {
-			char *inconsistent_type = mem_is_boolean(pIn1) ||
-						  mem_is_binary(pIn1) ?
-						  mem_type_to_str(pIn3) :
-						  mem_type_to_str(pIn1);
-			char *expected_type = mem_is_boolean(pIn1) ||
-					      mem_is_binary(pIn1) ?
-					      mem_type_to_str(pIn1) :
-					      mem_type_to_str(pIn3);
-			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-				 inconsistent_type, expected_type);
-			goto abort_due_to_error;
-		}
-		res = sqlMemCompare(pIn3, pIn1, NULL);
 	} else {
 		enum field_type type = pOp->p5 & FIELD_TYPE_MASK;
-		if (sql_type_is_numeric(type)) {
-			if (mem_is_string(pIn1)) {
-				mem_apply_numeric_type(pIn1);
-				flags3 = pIn3->flags;
-			}
-			if (mem_is_string(pIn3)) {
-				if (mem_apply_numeric_type(pIn3) != 0) {
-					diag_set(ClientError,
-						 ER_SQL_TYPE_MISMATCH,
-						 sql_value_to_diag_str(pIn3),
-						 "numeric");
-					goto abort_due_to_error;
-				}
-			}
-			/* Handle the common case of integer comparison here, as an
-			 * optimization, to avoid a call to sqlMemCompare()
-			 */
-			if (mem_is_integer(pIn1) && mem_is_integer(pIn3)) {
-				if (!mem_is_unsigned(pIn1) &&
-				    !mem_is_unsigned(pIn3)) {
-					if (pIn3->u.i > pIn1->u.i)
-						res = +1;
-					else if (pIn3->u.i < pIn1->u.i)
-						res = -1;
-					else
-						res = 0;
-					goto compare_op;
-				}
-				if (mem_is_unsigned(pIn1) &&
-				    mem_is_unsigned(pIn3)) {
-					if (pIn3->u.u > pIn1->u.u)
-						res = +1;
-					else if (pIn3->u.u < pIn1->u.u)
-						res = -1;
-					else
-						res = 0;
-					goto compare_op;
-				}
-				if (mem_is_unsigned(pIn1) &&
-				    !mem_is_unsigned(pIn3)) {
-					res = -1;
-					goto compare_op;
-				}
-				res = 1;
-				goto compare_op;
-			}
-		} else if (type == FIELD_TYPE_STRING) {
-			if (!mem_is_string(pIn1) && mem_is_number(pIn1)) {
-				sqlVdbeMemStringify(pIn1);
-				flags1 = (pIn1->flags & ~MEM_TypeMask) | (flags1 & MEM_TypeMask);
-				assert(pIn1!=pIn3);
-			}
-			if (!mem_is_string(pIn3) && mem_is_number(pIn3)) {
-				sqlVdbeMemStringify(pIn3);
-				flags3 = (pIn3->flags & ~MEM_TypeMask) | (flags3 & MEM_TypeMask);
-			}
-		}
-		assert(pOp->p4type==P4_COLLSEQ || pOp->p4.pColl==0);
-		res = sqlMemCompare(pIn3, pIn1, pOp->p4.pColl);
+		if (mem_compare(pIn3, pIn1, &res, type, pOp->p4.pColl))
+			goto abort_due_to_error;
 	}
-			compare_op:
 	switch( pOp->opcode) {
 	case OP_Eq:    res2 = res==0;     break;
 	case OP_Ne:    res2 = res;        break;
@@ -1672,14 +1592,6 @@ case OP_Ge: {             /* same as TK_GE, jump, in1, in3 */
 	case OP_Gt:    res2 = res>0;      break;
 	default:       res2 = res>=0;     break;
 	}
-
-	/* Undo any changes made by mem_apply_type() to the input registers. */
-	assert((pIn1->flags & MEM_Dyn) == (flags1 & MEM_Dyn));
-	pIn1->flags = flags1;
-	pIn1->field_type = ft_p1;
-	assert((pIn3->flags & MEM_Dyn) == (flags3 & MEM_Dyn));
-	pIn3->flags = flags3;
-	pIn3->field_type = ft_p3;
 
 	if (pOp->p5 & SQL_STOREP2) {
 		iCompare = res;
