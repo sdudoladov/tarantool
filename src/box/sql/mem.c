@@ -501,6 +501,136 @@ mem_arithmetic(struct Mem *left, struct Mem *right, struct Mem *result, int op)
 	return 0;
 }
 
+int
+mem_compare(struct Mem *left, struct Mem *right, int *result,
+	    enum field_type type)
+{
+	assert(((left->flags | right->flags) & MEM_Null) == 0);
+	if ((right->flags & MEM_Bool) != 0) {
+		if ((left->flags & MEM_Bool) != 0) {
+			if (left->u.b == right->u.b)
+				*result = 0;
+			else if (left->u.b)
+				*result = 1;
+			else
+				*result = -1;
+			return 0;
+		}
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 mem_type_to_str(left), "boolean");
+		return -1;
+	}
+	if ((right->flags & MEM_Bool) != 0) {
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 mem_type_to_str(right), "boolean");
+		return -1;
+	}
+	if ((right->flags & MEM_Blob) != 0) {
+		if ((left->flags & MEM_Blob) != 0) {
+			*result = sqlMemCompare(left, right, NULL);
+			return 0;
+		}
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 mem_type_to_str(left), "varbinary");
+		return -1;
+	}
+	if ((right->flags & MEM_Blob) != 0) {
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 mem_type_to_str(right), "varbinary");
+		return -1;
+	}
+	if (sql_type_is_numeric(type)) {
+		int64_t l;
+		double dl;
+		int left_type = left->flags & (MEM_Int | MEM_UInt | MEM_Real);
+		if ((left->flags & MEM_Str) != 0) {
+			bool is_l_neg;
+			if (sql_atoi64(left->z, &l, &is_l_neg, left->n) == 0)
+				left_type = MEM_Int;
+			else if (sqlAtoF(left->z, &dl, left->n) != 0)
+				left_type = MEM_Real;
+		}
+		if (left_type == 0) {
+			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+				 sql_value_to_diag_str(left), "numeric");
+			return -1;
+		}
+
+		int64_t r;
+		double dr;
+		int right_type = right->flags & (MEM_Int | MEM_UInt | MEM_Real);
+		if ((right->flags & MEM_Str) != 0) {
+			bool is_r_neg;
+			if (sql_atoi64(right->z, &r, &is_r_neg, right->n) == 0)
+				right_type = MEM_Int;
+			else if (sqlAtoF(right->z, &dr, right->n) != 0)
+				right_type = MEM_Real;
+		}
+		/* TODO: There should be check for rvalue type. */
+		if (right_type == 0) {
+			*result = -1;
+			return 0;
+		}
+		if (left_type == right_type) {
+			if (left_type == MEM_Real) {
+				if (left->u.r > right->u.r)
+					*result = 1;
+				else if (left->u.r < right->u.r)
+					*result = -1;
+				else
+					*result = 0;
+				return 0;
+			}
+			if (left_type == MEM_Int) {
+				if (left->u.i > right->u.i)
+					*result = 1;
+				else if (left->u.i < right->u.i)
+					*result = -1;
+				else
+					*result = 0;
+				return 0;
+			}
+			if (left->u.u > right->u.u)
+				*result = 1;
+			else if (left->u.u < right->u.u)
+				*result = -1;
+			else
+				*result = 0;
+			return 0;
+		}
+		if (left_type == MEM_Real) {
+			if (right_type == MEM_Int) {
+				*result = double_compare_nint64(dl, r, 1);
+				return 0;
+			}
+			*result = double_compare_uint64(dl, (uint64_t)r, 1);
+			return 0;
+		}
+		if (right_type == MEM_Real) {
+			if (left_type == MEM_Int) {
+				*result = double_compare_nint64(dl, r, -1);
+				return 0;
+			}
+			*result = double_compare_uint64(dl, (uint64_t)r, -1);
+			return 0;
+		}
+		if (left_type == MEM_Int) {
+			*result = -1;
+			return 0;
+		}
+		assert(right_type == MEM_Int && left_type == MEM_UInt);
+		*result = 1;
+		return 0;
+	}
+	if (type == FIELD_TYPE_STRING) {
+		if (mem_is_number(right))
+			sqlVdbeMemStringify(right);
+		if (mem_is_number(left))
+			sqlVdbeMemStringify(left);
+	}
+	return 0;
+}
+
 static inline bool
 mem_has_msgpack_subtype(struct Mem *mem)
 {
