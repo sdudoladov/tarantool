@@ -355,6 +355,152 @@ mem_concat(struct Mem *left, struct Mem *right, struct Mem *result)
 	return 0;
 }
 
+int
+mem_arithmetic(struct Mem *left, struct Mem *right, struct Mem *result, int op)
+{
+	sqlVdbeMemSetNull(result);
+	result->field_type = FIELD_TYPE_NUMBER;
+	if (((left->flags | right->flags) & MEM_Null) != 0)
+		return 0;
+	uint16_t type_left = numericType(left);
+	uint16_t type_right = numericType(right);
+	if ((type_right & (MEM_Int | MEM_UInt | MEM_Real)) == 0) {
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 sql_value_to_diag_str(right), "numeric");
+		return -1;
+	}
+	if ((type_left & (MEM_Int | MEM_UInt | MEM_Real)) == 0) {
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 sql_value_to_diag_str(left), "numeric");
+		return -1;
+	}
+	if (((type_left | type_right) & MEM_Real) != 0) {
+		double r;
+		if (sqlVdbeRealValue(right, &r) != 0) {
+			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+				 sql_value_to_diag_str(right), "numeric");
+			return -1;
+		}
+		double l;
+		if (sqlVdbeRealValue(left, &l) != 0) {
+			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+				 sql_value_to_diag_str(left), "numeric");
+			return -1;
+		}
+		double res;
+		switch(op) {
+		case OP_Add:
+			res = l + r;
+			break;
+		case OP_Subtract:
+			res = l - r;
+			break;
+		case OP_Multiply:
+			res = l * r;
+			break;
+		case OP_Divide:
+			if (r == 0.) {
+				diag_set(ClientError, ER_SQL_EXECUTE,
+					 "division by zero");
+				return -1;
+			}
+			res = l / r;
+			break;
+		case OP_Remainder: {
+			int64_t il = (int64_t)l;
+			int64_t ir = (int64_t)r;
+			if (ir == 0) {
+				diag_set(ClientError, ER_SQL_EXECUTE,
+					 "division by zero");
+				return -1;
+			}
+			if (ir == -1)
+				ir = 1;
+			res = (double)(il % ir);
+			break;
+		}
+		default:
+			unreachable();
+		}
+		if (sqlIsNaN(res))
+			return 0;
+		result->u.r = res;
+		result->flags = MEM_Real;
+		return 0;
+	}
+	int64_t l = left->u.i;
+	int64_t r = right->u.i;
+	int64_t res;
+	/*
+	 * TODO: This is wrong: we should determine sign of values using
+	 * left_type and right_type instead of left->flags and
+	 * right->flags.
+	 */
+	bool is_l_neg = (left->flags & MEM_Int) != 0;
+	bool is_r_neg = (right->flags & MEM_Int) != 0;
+	bool is_res_neg;
+	switch(op) {
+	case OP_Add:
+		if (sql_add_int(l, is_l_neg, r, is_r_neg, &res,
+				&is_res_neg) != 0) {
+			diag_set(ClientError, ER_SQL_EXECUTE,
+				 "integer is overflowed");
+			return -1;
+		}
+		break;
+	case OP_Subtract:
+		if (sql_sub_int(l, is_l_neg, r, is_r_neg, &res,
+				&is_res_neg) != 0) {
+			diag_set(ClientError, ER_SQL_EXECUTE,
+				 "integer is overflowed");
+			return -1;
+		}
+		break;
+	case OP_Multiply:
+		if (sql_mul_int(l, is_l_neg, r, is_r_neg, &res,
+				&is_res_neg) != 0) {
+			diag_set(ClientError, ER_SQL_EXECUTE,
+				 "integer is overflowed");
+			return -1;
+		}
+		break;
+	case OP_Divide:
+		if (r == 0) {
+			diag_set(ClientError, ER_SQL_EXECUTE,
+				 "division by zero");
+			return -1;
+		}
+		if (sql_div_int(l, is_l_neg, r, is_r_neg, &res,
+				&is_res_neg) != 0) {
+			diag_set(ClientError, ER_SQL_EXECUTE,
+				 "integer is overflowed");
+			return -1;
+		}
+		break;
+	case OP_Remainder: {
+		if (r == 0) {
+			diag_set(ClientError, ER_SQL_EXECUTE,
+				 "division by zero");
+			return -1;
+		}
+		if (r == -1)
+			r = 1;
+		if (sql_rem_int(l, is_l_neg, r, is_r_neg, &res,
+				&is_res_neg) != 0) {
+			diag_set(ClientError, ER_SQL_EXECUTE,
+				 "integer is overflowed");
+			return -1;
+		}
+		break;
+	}
+	default:
+		unreachable();
+	}
+	result->u.i = res;
+	result->flags = is_res_neg ? MEM_Int : MEM_UInt;
+	return 0;
+}
+
 static inline bool
 mem_has_msgpack_subtype(struct Mem *mem)
 {

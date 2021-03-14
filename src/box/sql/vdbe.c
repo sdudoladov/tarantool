@@ -1080,117 +1080,12 @@ case OP_Subtract:              /* same as TK_MINUS, in1, in2, out3 */
 case OP_Multiply:              /* same as TK_STAR, in1, in2, out3 */
 case OP_Divide:                /* same as TK_SLASH, in1, in2, out3 */
 case OP_Remainder: {           /* same as TK_REM, in1, in2, out3 */
-	u16 type1;      /* Numeric type of left operand */
-	u16 type2;      /* Numeric type of right operand */
-	i64 iA;         /* Integer value of left operand */
-	i64 iB;         /* Integer value of right operand */
-	double rA;      /* Real value of left operand */
-	double rB;      /* Real value of right operand */
-
 	pIn1 = &aMem[pOp->p1];
-	type1 = numericType(pIn1);
 	pIn2 = &aMem[pOp->p2];
-	type2 = numericType(pIn2);
-	pOut = vdbe_prepare_null_out(p, pOp->p3);
-	if (mem_is_null(pIn1) || mem_is_null(pIn2))
-		goto arithmetic_result_is_null;
-	if ((type1 & (MEM_Int | MEM_UInt)) != 0 &&
-	    (type2 & (MEM_Int | MEM_UInt)) != 0) {
-		iA = pIn1->u.i;
-		iB = pIn2->u.i;
-		bool is_lhs_neg = mem_is_integer(pIn1) &&
-				  !mem_is_unsigned(pIn1);
-		bool is_rhs_neg = mem_is_integer(pIn2) &&
-				  !mem_is_unsigned(pIn2);
-		bool is_res_neg;
-		switch( pOp->opcode) {
-		case OP_Add: {
-			if (sql_add_int(iA, is_lhs_neg, iB, is_rhs_neg,
-					(int64_t *) &iB, &is_res_neg) != 0)
-				goto integer_overflow;
-			break;
-		}
-		case OP_Subtract: {
-			if (sql_sub_int(iB, is_rhs_neg, iA, is_lhs_neg,
-					(int64_t *) &iB, &is_res_neg) != 0)
-				goto integer_overflow;
-			break;
-		}
-		case OP_Multiply: {
-			if (sql_mul_int(iA, is_lhs_neg, iB, is_rhs_neg,
-					(int64_t *) &iB, &is_res_neg) != 0)
-				goto integer_overflow;
-			break;
-		}
-		case OP_Divide: {
-			if (iA == 0)
-				goto division_by_zero;
-			if (sql_div_int(iB, is_rhs_neg, iA, is_lhs_neg,
-					(int64_t *) &iB, &is_res_neg) != 0)
-				goto integer_overflow;
-			break;
-		}
-		default: {
-			if (iA == 0)
-				goto division_by_zero;
-			if (iA==-1) iA = 1;
-			if (sql_rem_int(iB, is_rhs_neg, iA, is_lhs_neg,
-					(int64_t *) &iB, &is_res_neg) != 0)
-				goto integer_overflow;
-			break;
-		}
-		}
-		mem_set_int(pOut, iB, is_res_neg);
-	} else {
-		if (sqlVdbeRealValue(pIn1, &rA) != 0) {
-			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-				 sql_value_to_diag_str(pIn1), "numeric");
-			goto abort_due_to_error;
-		}
-		if (sqlVdbeRealValue(pIn2, &rB) != 0) {
-			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-				 sql_value_to_diag_str(pIn2), "numeric");
-			goto abort_due_to_error;
-		}
-		assert(((type1 | type2) & MEM_Real) != 0);
-		switch( pOp->opcode) {
-		case OP_Add:         rB += rA;       break;
-		case OP_Subtract:    rB -= rA;       break;
-		case OP_Multiply:    rB *= rA;       break;
-		case OP_Divide: {
-			if (rA == (double)0)
-				goto division_by_zero;
-			rB /= rA;
-			break;
-		}
-		default: {
-			iA = (i64)rA;
-			iB = (i64)rB;
-			if (iA == 0)
-				goto division_by_zero;
-			if (iA==-1) iA = 1;
-			rB = (double)(iB % iA);
-			break;
-		}
-		}
-		if (sqlIsNaN(rB)) {
-			goto arithmetic_result_is_null;
-		}
-		mem_set_double(pOut, rB);
-	}
+	pOut = &aMem[pOp->p3];
+	if (mem_arithmetic(pIn2, pIn1, pOut, pOp->opcode) != 0)
+		goto abort_due_to_error;
 	break;
-
-arithmetic_result_is_null:
-	/* Force NULL be of type NUMBER. */
-	pOut->field_type = FIELD_TYPE_NUMBER;
-	break;
-
-division_by_zero:
-	diag_set(ClientError, ER_SQL_EXECUTE, "division by zero");
-	goto abort_due_to_error;
-integer_overflow:
-	diag_set(ClientError, ER_SQL_EXECUTE, "integer is overflowed");
-	goto abort_due_to_error;
 }
 
 /* Opcode: CollSeq P1 * * P4
