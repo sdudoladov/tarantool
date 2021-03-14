@@ -644,6 +644,65 @@ compare_numbers(struct Mem *left, struct Mem *right, int *result)
 	return 0;
 }
 
+static int
+compare_strings(struct Mem *left, struct Mem *right, int *result,
+		struct coll *coll)
+{
+	char *sl;
+	uint32_t nl;
+	if ((left->flags & MEM_Str) != 0) {
+		sl = left->z;
+		nl = left->n;
+	} else {
+		assert((left->flags & (MEM_Int | MEM_UInt | MEM_Real)) != 0);
+		uint32_t size = 32;
+		sl = region_alloc(&fiber()->gc, size);
+		if (sl == NULL) {
+			diag_set(OutOfMemory, size, "region_alloc", "sl");
+			return -1;
+		}
+		if ((left->flags & MEM_Int) != 0)
+			sql_snprintf(size, sl, "%lld", left->u.i);
+		else if ((left->flags & MEM_UInt) != 0)
+			sql_snprintf(size, sl, "%llu", left->u.u);
+		else
+			sql_snprintf(size, sl, "%!.15g", left->u.r);
+		nl = strlen(sl);
+	}
+
+	char *sr;
+	uint32_t nr;
+	if ((right->flags & MEM_Str) != 0) {
+		sr = right->z;
+		nr = right->n;
+	} else {
+		assert((right->flags & (MEM_Int | MEM_UInt | MEM_Real)) != 0);
+		uint32_t size = 32;
+		sr = region_alloc(&fiber()->gc, size);
+		if (sr == NULL) {
+			diag_set(OutOfMemory, size, "region_alloc", "sr");
+			return -1;
+		}
+		if ((right->flags & MEM_Int) != 0)
+			sql_snprintf(size, sr, "%lld", right->u.i);
+		else if ((right->flags & MEM_UInt) != 0)
+			sql_snprintf(size, sr, "%llu", right->u.u);
+		else
+			sql_snprintf(size, sr, "%!.15g", right->u.r);
+		nr = strlen(sr);
+	}
+	if (coll) {
+		*result = coll->cmp(sl, nl, sr, nr, coll);
+		return 0;
+	}
+	uint32_t minlen = MIN(nl, nr);
+	*result = memcmp(sl, sr, minlen);
+	if (*result != 0)
+		return 0;
+	*result = nl - nr;
+	return 0;
+}
+
 int
 mem_compare(struct Mem *left, struct Mem *right, int *result,
 	    enum field_type type, struct coll *coll)
@@ -682,6 +741,8 @@ mem_compare(struct Mem *left, struct Mem *right, int *result,
 	}
 	if (sql_type_is_numeric(type))
 		return compare_numbers(left, right, result);
+	if (type == FIELD_TYPE_STRING)
+		return compare_strings(left, right, result, coll);
 	*result = sqlMemCompare(left, right, coll);
 	return 0;
 }
