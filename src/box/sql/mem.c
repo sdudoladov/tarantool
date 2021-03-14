@@ -501,6 +501,58 @@ mem_arithmetic(struct Mem *left, struct Mem *right, struct Mem *result, int op)
 	return 0;
 }
 
+int
+mem_bitwise_arithmetic(struct Mem *left, struct Mem *right, struct Mem *result,
+		       int op)
+{
+	sqlVdbeMemSetNull(result);
+	result->field_type = FIELD_TYPE_INTEGER;
+	if (((left->flags | right->flags) & MEM_Null) != 0)
+		return 0;
+	int64_t l;
+	int64_t r;
+	bool unused;
+	if (sqlVdbeIntValue(left, &l, &unused) != 0) {
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 sql_value_to_diag_str(left), "integer");
+		return -1;
+	}
+	if (sqlVdbeIntValue(right, &r, &unused) != 0) {
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 sql_value_to_diag_str(right), "integer");
+		return -1;
+	}
+	if (op == OP_BitAnd) {
+		result->u.i = l & r;
+		result->flags = result->u.i < 0 ? MEM_Int : MEM_UInt;
+		return 0;
+	}
+	if (op == OP_BitOr) {
+		result->u.i = l | r;
+		result->flags = result->u.i < 0 ? MEM_Int : MEM_UInt;
+		return 0;
+	}
+	assert(op == OP_ShiftRight || op == OP_ShiftLeft);
+	bool is_left_shift = op == OP_ShiftLeft;
+	if (r < 0) {
+		is_left_shift = !is_left_shift;
+		r = r < -64 ? 64 : -r;
+	}
+	if (r >= 64) {
+		result->u.i = is_left_shift || l >= 0 ? 0 : -1;
+		result->flags = result->u.i < 0 ? MEM_Int : MEM_UInt;
+		return 0;
+	}
+	if (is_left_shift) {
+		result->u.i = l << r;
+		result->flags = result->u.i < 0 ? MEM_Int : MEM_UInt;
+		return 0;
+	}
+	result->u.i = l >> r;
+	result->flags = result->u.i < 0 ? MEM_Int : MEM_UInt;
+	return 0;
+}
+
 static int
 compare_blobs(const struct Mem *left, const struct Mem *right, int *result)
 {

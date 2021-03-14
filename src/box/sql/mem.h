@@ -185,6 +185,10 @@ int
 mem_arithmetic(struct Mem *left, struct Mem *right, struct Mem *result, int op);
 
 int
+mem_bitwise_arithmetic(struct Mem *left, struct Mem *right, struct Mem *result,
+		       int op);
+
+int
 mem_compare(struct Mem *left, struct Mem *right, int *result,
 	    enum field_type type, struct coll *coll);
 

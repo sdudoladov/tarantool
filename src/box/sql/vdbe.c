@@ -1304,60 +1304,12 @@ case OP_BitAnd:                 /* same as TK_BITAND, in1, in2, out3 */
 case OP_BitOr:                  /* same as TK_BITOR, in1, in2, out3 */
 case OP_ShiftLeft:              /* same as TK_LSHIFT, in1, in2, out3 */
 case OP_ShiftRight: {           /* same as TK_RSHIFT, in1, in2, out3 */
-	i64 iA;
-	u64 uA;
-	i64 iB;
-	u8 op;
-
 	pIn1 = &aMem[pOp->p1];
 	pIn2 = &aMem[pOp->p2];
-	pOut = vdbe_prepare_null_out(p, pOp->p3);
-	if (mem_is_null(pIn1) || mem_is_null(pIn2)) {
-		/* Force NULL be of type INTEGER. */
-		pOut->field_type = FIELD_TYPE_INTEGER;
-		break;
-	}
-	bool unused;
-	if (sqlVdbeIntValue(pIn2, (int64_t *) &iA, &unused) != 0) {
-		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-			 sql_value_to_diag_str(pIn2), "integer");
+	pOut = &aMem[pOp->p3];
+	if (mem_bitwise_arithmetic(pIn2, pIn1, pOut, pOp->opcode) != 0)
 		goto abort_due_to_error;
-	}
-	if (sqlVdbeIntValue(pIn1, (int64_t *) &iB, &unused) != 0) {
-		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-			 sql_value_to_diag_str(pIn1), "integer");
-		goto abort_due_to_error;
-	}
-	op = pOp->opcode;
-	if (op==OP_BitAnd) {
-		iA &= iB;
-	} else if (op==OP_BitOr) {
-		iA |= iB;
-	} else if (iB!=0) {
-		assert(op==OP_ShiftRight || op==OP_ShiftLeft);
-
-		/* If shifting by a negative amount, shift in the other direction */
-		if (iB<0) {
-			assert(OP_ShiftRight==OP_ShiftLeft+1);
-			op = 2*OP_ShiftLeft + 1 - op;
-			iB = iB>(-64) ? -iB : 64;
-		}
-
-		if (iB>=64) {
-			iA = (iA>=0 || op==OP_ShiftLeft) ? 0 : -1;
-		} else {
-			memcpy(&uA, &iA, sizeof(uA));
-			if (op==OP_ShiftLeft) {
-				uA <<= iB;
-			} else {
-				uA >>= iB;
-				/* Sign-extend on a right shift of a negative number */
-				if (iA<0) uA |= ((((u64)0xffffffff)<<32)|0xffffffff) << (64-iB);
-			}
-			memcpy(&iA, &uA, sizeof(iA));
-		}
-	}
-	mem_set_i64(pOut, iA);
+	assert(pOut->field_type == FIELD_TYPE_INTEGER);
 	break;
 }
 
