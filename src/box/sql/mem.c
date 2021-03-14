@@ -501,9 +501,152 @@ mem_arithmetic(struct Mem *left, struct Mem *right, struct Mem *result, int op)
 	return 0;
 }
 
+static int
+compare_blobs(const struct Mem *left, const struct Mem *right, int *result)
+{
+	int nl = left->n;
+	int nr = right->n;
+	int minlen = MIN(nl, nr);
+
+	/*
+	 * It is possible to have a Blob value that has some non-zero content
+	 * followed by zero content.  But that only comes up for Blobs formed
+	 * by the OP_MakeRecord opcode, and such Blobs never get passed into
+	 * mem_compare().
+	 */
+	assert((left->flags & MEM_Zero) == 0 || nl == 0);
+	assert((right->flags & MEM_Zero) == 0 || nr == 0);
+
+	if (left->flags & right->flags & MEM_Zero) {
+		*result = left->u.nZero - right->u.nZero;
+		return 0;
+	}
+	if (left->flags & MEM_Zero) {
+		for (int i = 0; i < minlen; ++i) {
+			if (right->z[i] != 0) {
+				*result = -1;
+				return 0;
+			}
+		}
+		*result = left->u.nZero - nr;
+		return 0;
+	}
+	if (right->flags & MEM_Zero) {
+		for (int i = 0; i < minlen; ++i) {
+			if (left->z[i] != 0){
+				*result = 1;
+				return 0;
+			}
+		}
+		*result = right->u.nZero - nl;
+		return 0;
+	}
+	*result = memcmp(left->z, right->z, minlen);
+	if (*result != 0)
+		return 0;
+	*result = nl - nr;
+	return 0;
+}
+
+static int
+compare_numbers(struct Mem *left, struct Mem *right, int *result)
+{
+	int64_t l;
+	double dl;
+	int left_type = left->flags & (MEM_Int | MEM_UInt | MEM_Real);
+	if (left_type == MEM_Real) {
+		dl = left->u.r;
+	} else if (left_type != 0) {
+		l = left->u.i;
+	} else if ((left->flags & MEM_Str) != 0) {
+		bool is_l_neg;
+		if (sql_atoi64(left->z, &l, &is_l_neg, left->n) == 0)
+			left_type = is_l_neg ? MEM_Int : MEM_UInt;
+		else if (sqlAtoF(left->z, &dl, left->n) != 0)
+			left_type = MEM_Real;
+	}
+	if (left_type == 0) {
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 sql_value_to_diag_str(left), "numeric");
+		return -1;
+	}
+
+	int64_t r;
+	double dr;
+	int right_type = right->flags & (MEM_Int | MEM_UInt | MEM_Real);
+	if (right_type == MEM_Real) {
+		dr = right->u.r;
+	} else if (right_type != 0) {
+		r = right->u.i;
+	} else if ((right->flags & MEM_Str) != 0) {
+		bool is_r_neg;
+		if (sql_atoi64(right->z, &r, &is_r_neg, right->n) == 0)
+			right_type = is_r_neg ? MEM_Int : MEM_UInt;
+		else if (sqlAtoF(right->z, &dr, right->n) != 0)
+			right_type = MEM_Real;
+	}
+	/* TODO: There should be check for rvalue type. */
+	if (right_type == 0) {
+		*result = -1;
+		return 0;
+	}
+	if (left_type == right_type) {
+		if (left_type == MEM_Real) {
+			if (dl > dr)
+				*result = 1;
+			else if (dl < dr)
+				*result = -1;
+			else
+				*result = 0;
+			return 0;
+		}
+		if (left_type == MEM_Int) {
+			if (l > r)
+				*result = 1;
+			else if (l < r)
+				*result = -1;
+			else
+				*result = 0;
+			return 0;
+		}
+		uint64_t ul = (uint64_t)l;
+		uint64_t ur = (uint64_t)r;
+		if (ul > ur)
+			*result = 1;
+		else if (ul < ur)
+			*result = -1;
+		else
+			*result = 0;
+		return 0;
+	}
+	if (left_type == MEM_Real) {
+		if (right_type == MEM_Int) {
+			*result = double_compare_nint64(dl, r, 1);
+			return 0;
+		}
+		*result = double_compare_uint64(dl, (uint64_t)r, 1);
+		return 0;
+	}
+	if (right_type == MEM_Real) {
+		if (left_type == MEM_Int) {
+			*result = double_compare_nint64(dr, l, -1);
+			return 0;
+		}
+		*result = double_compare_uint64(dr, (uint64_t)l, -1);
+		return 0;
+	}
+	if (left_type == MEM_Int) {
+		*result = -1;
+		return 0;
+	}
+	assert(right_type == MEM_Int && left_type == MEM_UInt);
+	*result = 1;
+	return 0;
+}
+
 int
 mem_compare(struct Mem *left, struct Mem *right, int *result,
-	    enum field_type type)
+	    enum field_type type, struct coll *coll)
 {
 	assert(((left->flags | right->flags) & MEM_Null) == 0);
 	if ((right->flags & MEM_Bool) != 0) {
@@ -520,114 +663,26 @@ mem_compare(struct Mem *left, struct Mem *right, int *result,
 			 mem_type_to_str(left), "boolean");
 		return -1;
 	}
-	if ((right->flags & MEM_Bool) != 0) {
+	if ((left->flags & MEM_Bool) != 0) {
 		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
 			 mem_type_to_str(right), "boolean");
 		return -1;
 	}
 	if ((right->flags & MEM_Blob) != 0) {
-		if ((left->flags & MEM_Blob) != 0) {
-			*result = sqlMemCompare(left, right, NULL);
-			return 0;
-		}
+		if ((left->flags & MEM_Blob) != 0)
+			return compare_blobs(left, right, result);
 		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
 			 mem_type_to_str(left), "varbinary");
 		return -1;
 	}
-	if ((right->flags & MEM_Blob) != 0) {
+	if ((left->flags & MEM_Blob) != 0) {
 		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
 			 mem_type_to_str(right), "varbinary");
 		return -1;
 	}
-	if (sql_type_is_numeric(type)) {
-		int64_t l;
-		double dl;
-		int left_type = left->flags & (MEM_Int | MEM_UInt | MEM_Real);
-		if ((left->flags & MEM_Str) != 0) {
-			bool is_l_neg;
-			if (sql_atoi64(left->z, &l, &is_l_neg, left->n) == 0)
-				left_type = MEM_Int;
-			else if (sqlAtoF(left->z, &dl, left->n) != 0)
-				left_type = MEM_Real;
-		}
-		if (left_type == 0) {
-			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-				 sql_value_to_diag_str(left), "numeric");
-			return -1;
-		}
-
-		int64_t r;
-		double dr;
-		int right_type = right->flags & (MEM_Int | MEM_UInt | MEM_Real);
-		if ((right->flags & MEM_Str) != 0) {
-			bool is_r_neg;
-			if (sql_atoi64(right->z, &r, &is_r_neg, right->n) == 0)
-				right_type = MEM_Int;
-			else if (sqlAtoF(right->z, &dr, right->n) != 0)
-				right_type = MEM_Real;
-		}
-		/* TODO: There should be check for rvalue type. */
-		if (right_type == 0) {
-			*result = -1;
-			return 0;
-		}
-		if (left_type == right_type) {
-			if (left_type == MEM_Real) {
-				if (left->u.r > right->u.r)
-					*result = 1;
-				else if (left->u.r < right->u.r)
-					*result = -1;
-				else
-					*result = 0;
-				return 0;
-			}
-			if (left_type == MEM_Int) {
-				if (left->u.i > right->u.i)
-					*result = 1;
-				else if (left->u.i < right->u.i)
-					*result = -1;
-				else
-					*result = 0;
-				return 0;
-			}
-			if (left->u.u > right->u.u)
-				*result = 1;
-			else if (left->u.u < right->u.u)
-				*result = -1;
-			else
-				*result = 0;
-			return 0;
-		}
-		if (left_type == MEM_Real) {
-			if (right_type == MEM_Int) {
-				*result = double_compare_nint64(dl, r, 1);
-				return 0;
-			}
-			*result = double_compare_uint64(dl, (uint64_t)r, 1);
-			return 0;
-		}
-		if (right_type == MEM_Real) {
-			if (left_type == MEM_Int) {
-				*result = double_compare_nint64(dl, r, -1);
-				return 0;
-			}
-			*result = double_compare_uint64(dl, (uint64_t)r, -1);
-			return 0;
-		}
-		if (left_type == MEM_Int) {
-			*result = -1;
-			return 0;
-		}
-		assert(right_type == MEM_Int && left_type == MEM_UInt);
-		*result = 1;
-		return 0;
-	}
-	if (type == FIELD_TYPE_STRING) {
-		if (mem_is_number(right))
-			sqlVdbeMemStringify(right);
-		if (mem_is_number(left))
-			sqlVdbeMemStringify(left);
-	}
+	if (sql_type_is_numeric(type))
+		return compare_numbers(left, right, result);
+	*result = sqlMemCompare(left, right, coll);
 	return 0;
 }
 
