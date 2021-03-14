@@ -17,6 +17,7 @@ jobs:
             sudo free
             sudo df -lh
             sudo lsblk
+            sudo lsblk -o NAME,MOUNTPOINT,MODEL,ROTA
       - name: call action to send Telegram message on failure
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_CORE_TOKEN }}
