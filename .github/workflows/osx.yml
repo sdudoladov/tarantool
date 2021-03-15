@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: packaging
         run: |
-            sudo free
+            sudo /usr/sbin/system_profiler SPHardwareDataType
             sudo df -lh
             sudo lsblk
             sudo lsblk -o NAME,MOUNTPOINT,MODEL,ROTA
